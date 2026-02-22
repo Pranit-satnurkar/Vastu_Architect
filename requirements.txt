@@ -1,0 +1,16 @@
+streamlit
+matplotlib
+ezdxf
+torch
+scikit-learn
+opencv-python
+langchain
+langchain-community
+langchain-groq
+chromadb
+pypdf
+shapely
+networkx
+tiktoken
+sentence-transformers
+langchain-text-splitters

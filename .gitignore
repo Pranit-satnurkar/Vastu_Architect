@@ -1,0 +1,55 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+# ... omitted ...
+
+# Unit test / coverage reports
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Project specific
+app.log
+test_output.dxf
+vastu_plan.png
+Final_Vastu_Blueprint.png
+db_vastu_rules/
+my_drawings/
+temp_*.dxf
+.gemini/
+brain/
+*.pth
+*.pth
+models/
+PDF/
+my_architectural_style.csv
+check_layers.py
+diagnostic_scan.py
+test_groq_import.py
+test_run.py
+extract_training_data.py
+image_to_lisp.py
+train_ai.py
+vastu_logic.py
+vastu_ai_backend.py
+vastu_lisp_engine.py
