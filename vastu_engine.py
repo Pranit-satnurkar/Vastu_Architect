@@ -74,9 +74,6 @@ def add_door_swing(msp, p1, p2, width=0.9):
                 dxfattribs={'layer': 'A-DOOR-SWING', 'linetype': 'DASHED'})
     return True
 
-def add_dimension(msp, p1, p2, base_point):
-    """Adds architectural dimension line on A-ANNO-DIMS."""
-    msp.add_linear_dim(base=base_point, p1=p1, p2=p2, dxfattribs={'layer': 'A-ANNO-DIMS'}).render()
 
 def draw_north_arrow(msp, x, y, size=1.0):
     """Draws a professional North Arrow symbol on A-ANNO-NRTH."""
@@ -161,7 +158,6 @@ def generate_ai_detailed_plan(rooms, plot_width, plot_height, client_name):
         # Dimensions on A-ANNO-DIMS (Fixed 2.5m outside plot)
         # Width @ y=-2.5 (Bottom rooms only)
         if miny <= 0.01:
-            add_dimension(msp, (minx, miny), (maxx, miny), base_point=(cx, -2.2)) # Line
             msp.add_text(
                 f"{rw:.2f}m",
                 dxfattribs={'height': 0.4, 'layer': 'A-ANNO-DIMS', 'color': 6}
@@ -169,7 +165,6 @@ def generate_ai_detailed_plan(rooms, plot_width, plot_height, client_name):
             
         # Depth @ x=-2.5 (Left side rooms only)
         if minx <= 0.01:
-            add_dimension(msp, (minx, miny), (minx, maxy), base_point=(-2.2, cy)) # Line
             msp.add_text(
                 f"{rd:.2f}m",
                 dxfattribs={'height': 0.4, 'layer': 'A-ANNO-DIMS', 'color': 6}
