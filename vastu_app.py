@@ -2,6 +2,8 @@ import streamlit as st
 import io
 import time
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from vastu_rag_engine import get_vastu_retriever, query_vastu_rules, ConstraintExtractor
 from spatial_optimizer import Room, VastuConstraint, generate_layout
 from vastu_engine import generate_ai_detailed_plan

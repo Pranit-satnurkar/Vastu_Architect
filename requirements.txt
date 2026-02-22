@@ -14,3 +14,4 @@ networkx
 tiktoken
 sentence-transformers
 langchain-text-splitters
+python-dotenv
