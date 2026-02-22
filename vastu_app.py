@@ -27,10 +27,13 @@ except Exception as e:
 
 st.sidebar.title("🏗️ Project Config")
 
-# API Configuration (Environment Variable)
+# API Configuration
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
-    st.sidebar.warning("⚠️ GROQ_API_KEY not found in environment. AI logic may be limited.")
+    GROQ_API_KEY = st.sidebar.text_input("Groq API Key", type="password", help="Get your key from https://console.groq.com/")
+    if not GROQ_API_KEY:
+        st.sidebar.warning("⚠️ GROQ_API_KEY missing. AI logic will use fallback patterns.")
+
 extractor = ConstraintExtractor(api_key=GROQ_API_KEY)
 
 client = st.sidebar.text_input("Client Name", "Mr. Sharma")
