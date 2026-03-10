@@ -53,3 +53,20 @@ train_ai.py
 vastu_logic.py
 vastu_ai_backend.py
 vastu_lisp_engine.py
+
+# Node / Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/package-lock.json
+# Frontend env
+frontend/.env
+frontend/.env.local
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
