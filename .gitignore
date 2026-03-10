@@ -53,3 +53,12 @@ train_ai.py
 vastu_logic.py
 vastu_ai_backend.py
 vastu_lisp_engine.py
+
+# Output files
+*.json
+*.txt
+*.log
+*.dxf
+
+# Temp folders
+frontend_temp/
