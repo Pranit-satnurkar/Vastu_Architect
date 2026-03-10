@@ -8,9 +8,8 @@ from langchain_community.llms import OpenAI  # Fallback
 # If using local/other LLM, we'd import that here.
 
 # --- CONFIGURATION ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PDF_DIR = os.path.join(BASE_DIR, "PDF")
-DB_DIR = os.path.join(BASE_DIR, "db_vastu_rules")
+PDF_DIR = "PDF"
+DB_DIR = "db_vastu_rules"
 
 def ingest_vastu_knowledge(pdf_dir=PDF_DIR, db_dir=DB_DIR):
     """
