@@ -19,7 +19,8 @@ def setup_layers(doc):
         ("A-GLAZ",       4, "CONTINUOUS", 25), # Cyan, 0.25mm
         ("A-ANNO-DIMS",  6, "CONTINUOUS", 15), # Magenta, 0.15mm
         ("A-ANNO-TEXT",  2, "CONTINUOUS", 18), # Yellow, 0.18mm
-        ("A-ANNO-NRTH",  2, "CONTINUOUS", 18)  # Yellow
+        ("A-ANNO-NRTH",  2, "CONTINUOUS", 18), # Yellow
+        ("A-DOOR-ENTR",  1, "CONTINUOUS", 35), # Red, 0.35mm — entrance marker
     ]
     for name, color, ltype, lweight in layers:
         if name not in doc.layers:
@@ -91,6 +92,44 @@ def _draw_door_in_gap(msp, gap_start, gap_end):
     angle_leaf = math.degrees(math.atan2(ny, nx))
     msp.add_arc(gap_start, radius=L, start_angle=angle_open, end_angle=angle_leaf,
                 dxfattribs={'layer': 'A-DOOR-SWING', 'linetype': 'DASHED'})
+
+
+def draw_entrance_marker(msp, gap_start, gap_end, offset_dir):
+    """
+    Draws a main-entrance marker for a door on an exterior wall:
+      - A bold threshold line across the outer face of the opening
+      - A small filled inward-pointing arrow at the midpoint
+      - An "ENTRY" text label outside the building
+    Called in addition to the door swing when the wall is exterior (offset_dir != None).
+    """
+    LA = {'layer': 'A-DOOR-ENTR'}
+    ARROW = 0.28    # arrow size in metres
+    TEXT_OFFSET = 0.55  # distance outside wall for "ENTRY" label
+
+    # Threshold line across the full opening on the outer face
+    msp.add_line(gap_start, gap_end, dxfattribs={**LA, 'lineweight': 35})
+
+    # Midpoint on the outer face
+    mx = (gap_start[0] + gap_end[0]) / 2
+    my = (gap_start[1] + gap_end[1]) / 2
+    ox, oy = offset_dir  # inward direction
+
+    # Filled arrow: tip points inward, base spans perpendicular to wall
+    tip = (mx + ox * ARROW, my + oy * ARROW)
+    gdx = gap_end[0] - gap_start[0]
+    gdy = gap_end[1] - gap_start[1]
+    gL = math.sqrt(gdx**2 + gdy**2)
+    if gL > 0.01:
+        px, py = gdx / gL * ARROW * 0.4, gdy / gL * ARROW * 0.4  # half-base
+        base_l = (mx - px, my - py)
+        base_r = (mx + px, my + py)
+        msp.add_solid([tip, base_l, base_r, tip], dxfattribs=LA)
+
+    # "ENTRY" text placed outside the building
+    tx = mx - ox * TEXT_OFFSET
+    ty = my - oy * TEXT_OFFSET
+    msp.add_text("ENTRY", height=0.30, dxfattribs=LA).set_placement(
+        (tx, ty), align=TextEntityAlignment.MIDDLE_CENTER)
 
 
 def draw_window_glazing(msp, gap_start, gap_end, thickness, offset_dir):
@@ -445,6 +484,31 @@ def generate_dxf_from_template_rooms(rooms, plot_w, plot_d, client_name, bhk_typ
         p1 = info.get('draw_p1', seg[0])
         p2 = info.get('draw_p2', seg[1])
         draw_wall_with_openings(msp, p1, p2, WALL_T, info['offset_dir'], info['openings'])
+
+    # Entrance marker on the Living Room door
+    # inward_dir = direction FROM the arrival side INTO the room
+    _WALL_INWARD = {'N': (0, -1), 'S': (0, 1), 'E': (-1, 0), 'W': (1, 0)}
+    for room in rooms:
+        if 'living' in room['name'].lower() and room.get('door'):
+            d = room['door']
+            wid = d['wall']
+            x, y, w, h = room['x'], room['y'], room['w'], room['h']
+            wall_pts_map = {
+                'S': ((x, y),       (x+w, y)),
+                'N': ((x, y+h),     (x+w, y+h)),
+                'W': ((x, y),       (x,   y+h)),
+                'E': ((x+w, y),     (x+w, y+h)),
+            }
+            wp1, wp2 = wall_pts_map[wid]
+            wdx, wdy = wp2[0]-wp1[0], wp2[1]-wp1[1]
+            wL = math.sqrt(wdx**2 + wdy**2)
+            ux, uy = wdx/wL, wdy/wL
+            cen = d['pos'] * wL
+            hw  = d['width'] / 2
+            gap_s = (wp1[0] + ux*(cen-hw), wp1[1] + uy*(cen-hw))
+            gap_e = (wp1[0] + ux*(cen+hw), wp1[1] + uy*(cen+hw))
+            draw_entrance_marker(msp, gap_s, gap_e, _WALL_INWARD[wid])
+            break
 
     # Room name + area annotations
     for room in rooms:
