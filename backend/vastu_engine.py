@@ -75,6 +75,183 @@ def add_door_swing(msp, p1, p2, width=0.9):
     return True
 
 
+def _draw_door_in_gap(msp, gap_start, gap_end):
+    """Draws a door leaf and 90° arc swing directly within a pre-measured gap."""
+    dx, dy = gap_end[0]-gap_start[0], gap_end[1]-gap_start[1]
+    L = math.sqrt(dx**2 + dy**2)
+    if L < 0.1: return
+    ux, uy = dx/L, dy/L
+    nx, ny = -uy, ux  # 90° CCW normal (inward side for S/W/E walls)
+
+    leaf_end = (gap_start[0] + nx*L, gap_start[1] + ny*L)
+    msp.add_line(gap_start, leaf_end, dxfattribs={'layer': 'A-DOOR'})
+
+    angle_open = math.degrees(math.atan2(uy, ux))
+    angle_leaf = math.degrees(math.atan2(ny, nx))
+    msp.add_arc(gap_start, radius=L, start_angle=angle_open, end_angle=angle_leaf,
+                dxfattribs={'layer': 'A-DOOR-SWING', 'linetype': 'DASHED'})
+
+
+def draw_window_glazing(msp, gap_start, gap_end, thickness, offset_dir):
+    """Draws two parallel glazing lines representing a window pane."""
+    gdx, gdy = gap_end[0]-gap_start[0], gap_end[1]-gap_start[1]
+    gL = math.sqrt(gdx**2 + gdy**2)
+    if gL < 0.05: return
+
+    if offset_dir:
+        # Exterior wall: glazing at 1/3 and 2/3 depth from outer face
+        ox, oy = offset_dir
+        t1, t2 = thickness / 3, 2 * thickness / 3
+        g1s = (gap_start[0] + ox*t1, gap_start[1] + oy*t1)
+        g1e = (gap_end[0]   + ox*t1, gap_end[1]   + oy*t1)
+        g2s = (gap_start[0] + ox*t2, gap_start[1] + oy*t2)
+        g2e = (gap_end[0]   + ox*t2, gap_end[1]   + oy*t2)
+    else:
+        # Interior wall: symmetric glazing at ±t/4 from centre line
+        gnx, gny = -gdy/gL, gdx/gL
+        t_off = thickness / 4
+        g1s = (gap_start[0] + gnx*t_off, gap_start[1] + gny*t_off)
+        g1e = (gap_end[0]   + gnx*t_off, gap_end[1]   + gny*t_off)
+        g2s = (gap_start[0] - gnx*t_off, gap_start[1] - gny*t_off)
+        g2e = (gap_end[0]   - gnx*t_off, gap_end[1]   - gny*t_off)
+
+    msp.add_line(g1s, g1e, dxfattribs={'layer': 'A-GLAZ'})
+    msp.add_line(g2s, g2e, dxfattribs={'layer': 'A-GLAZ'})
+
+
+def draw_wall_with_openings(msp, p1, p2, thickness, offset_dir, openings):
+    """
+    Draws a wall segment with any number of openings (doors/windows).
+    openings: list of (opening_type, {"pos": 0-1, "width": metres})
+    With 0 openings this is identical to draw_wall_with_hatch.
+    """
+    dx, dy = p2[0]-p1[0], p2[1]-p1[1]
+    L = math.sqrt(dx**2 + dy**2)
+    if L < 0.001: return
+    ux, uy = dx/L, dy/L
+
+    # Convert openings to wall-space spans and sort by start position
+    spans = []
+    for otype, odata in openings:
+        centre = odata['pos'] * L
+        half_w = odata['width'] / 2
+        ostart = max(0.0, centre - half_w)
+        oend   = min(L,   centre + half_w)
+        spans.append((ostart, oend, otype, odata))
+    spans.sort(key=lambda s: s[0])
+
+    prev_end = 0.0
+    for ostart, oend, otype, odata in spans:
+        # Solid wall before this opening
+        if ostart - prev_end > 0.01:
+            ep1 = (p1[0] + ux*prev_end, p1[1] + uy*prev_end)
+            ep2 = (p1[0] + ux*ostart,   p1[1] + uy*ostart)
+            draw_wall_with_hatch(msp, ep1, ep2, thickness, offset_dir)
+
+        gap_s = (p1[0] + ux*ostart, p1[1] + uy*ostart)
+        gap_e = (p1[0] + ux*oend,   p1[1] + uy*oend)
+
+        if otype == 'door':
+            _draw_door_in_gap(msp, gap_s, gap_e)
+        elif otype == 'window':
+            draw_window_glazing(msp, gap_s, gap_e, thickness, offset_dir)
+
+        prev_end = oend
+
+    # Remaining wall after last opening
+    if L - prev_end > 0.01:
+        ep1 = (p1[0] + ux*prev_end, p1[1] + uy*prev_end)
+        draw_wall_with_hatch(msp, ep1, p2, thickness, offset_dir)
+
+
+def generate_dxf_from_template_rooms(rooms, plot_w, plot_d, client_name):
+    """
+    Generates a professional DXF from the template room dicts
+    (name, x, y, w, h, door, window).  Used by the FastAPI /generate-dxf endpoint.
+    Doors and windows from template metadata are correctly drawn in the output.
+    """
+    doc = ezdxf.new(dxfversion='R2010')
+    doc.header['$INSUNITS'] = 4
+    setup_layers(doc)
+    msp = doc.modelspace()
+
+    WALL_T = 0.23
+    EPS = 0.02
+
+    def _wall_pts(room, wall_id):
+        x, y, w, h = room['x'], room['y'], room['w'], room['h']
+        return {'S': ((x, y), (x+w, y)),
+                'N': ((x, y+h), (x+w, y+h)),
+                'W': ((x, y), (x, y+h)),
+                'E': ((x+w, y), (x+w, y+h))}[wall_id]
+
+    # Collect all wall segments with exterior/interior status and openings
+    seg_map = {}  # normalised_seg -> {offset_dir, openings: list}
+
+    for room in rooms:
+        for wall_id in ('S', 'N', 'W', 'E'):
+            p1, p2 = _wall_pts(room, wall_id)
+            seg = tuple(sorted([
+                (round(p1[0], 3), round(p1[1], 3)),
+                (round(p2[0], 3), round(p2[1], 3))
+            ]))
+
+            # Determine exterior offset direction
+            sp1, sp2 = seg
+            offset_dir = None
+            if abs(sp1[0]) <= EPS and abs(sp2[0]) <= EPS:
+                offset_dir = (1, 0)   # West wall → inward = right
+            elif abs(sp1[0] - plot_w) <= EPS and abs(sp2[0] - plot_w) <= EPS:
+                offset_dir = (-1, 0)  # East wall → inward = left
+            elif abs(sp1[1]) <= EPS and abs(sp2[1]) <= EPS:
+                offset_dir = (0, 1)   # South wall → inward = up
+            elif abs(sp1[1] - plot_d) <= EPS and abs(sp2[1] - plot_d) <= EPS:
+                offset_dir = (0, -1)  # North wall → inward = down
+
+            if seg not in seg_map:
+                seg_map[seg] = {'offset_dir': offset_dir, 'openings': []}
+            elif offset_dir is not None:
+                # Exterior status takes priority if seen from another room
+                seg_map[seg]['offset_dir'] = offset_dir
+
+            # Attach door/window from this room (first claim per type wins)
+            existing_types = {o[0] for o in seg_map[seg]['openings']}
+            if room.get('door') and room['door']['wall'] == wall_id and 'door' not in existing_types:
+                seg_map[seg]['openings'].append(
+                    ('door', {'pos': room['door']['pos'], 'width': room['door']['width']})
+                )
+            if room.get('window') and room['window']['wall'] == wall_id and 'window' not in existing_types:
+                seg_map[seg]['openings'].append(
+                    ('window', {'pos': room['window']['pos'], 'width': room['window']['width']})
+                )
+
+    # Draw all segments
+    for seg, info in seg_map.items():
+        draw_wall_with_openings(msp, seg[0], seg[1], WALL_T, info['offset_dir'], info['openings'])
+
+    # Room name annotations
+    for room in rooms:
+        cx = room['x'] + room['w'] / 2
+        cy = room['y'] + room['h'] / 2
+        font_h = min(room['w'], room['h']) * 0.08
+        msp.add_text(
+            room['name'], height=font_h,
+            dxfattribs={'layer': 'A-ANNO-TEXT'}
+        ).set_placement((cx, cy), align=TextEntityAlignment.MIDDLE_CENTER)
+
+    draw_north_arrow(msp, plot_w + 2, plot_d - 1, size=1.5)
+    doc.audit()
+
+    temp_path = os.path.join(tempfile.gettempdir(), f"dxf_{client_name}.dxf")
+    try:
+        doc.saveas(temp_path, encoding='utf-8')
+        with open(temp_path, 'rb') as f:
+            content = f.read()
+    finally:
+        if os.path.exists(temp_path): os.remove(temp_path)
+    return content
+
+
 def draw_north_arrow(msp, x, y, size=1.0):
     """Draws a professional North Arrow symbol on A-ANNO-NRTH."""
     dxf_attr = {'layer': 'A-ANNO-NRTH'}

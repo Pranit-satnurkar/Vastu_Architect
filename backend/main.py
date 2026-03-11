@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 from spatial_optimizer import optimize_layout
+from vastu_engine import generate_dxf_from_template_rooms
 
 import google.generativeai as genai
 import json
@@ -61,6 +63,31 @@ class PlanRequest(BaseModel):
 @app.get("/health")
 def health():
   return {"status": "ok"}
+
+@app.post("/generate-dxf")
+def generate_dxf(req: PlanRequest):
+  params = {
+    "bhk_type": req.bhk_type,
+    "plot_w_ft": req.plot_w_ft,
+    "plot_d_ft": req.plot_d_ft,
+    "style": req.style
+  }
+  if req.prompt.strip():
+    params = parse_prompt(req.prompt, params)
+
+  result = optimize_layout(
+    params["bhk_type"], params["plot_w_ft"], params["plot_d_ft"], params["style"]
+  )
+  dxf_bytes = generate_dxf_from_template_rooms(
+    result["rooms"], result["plot_w_m"], result["plot_d_m"], "plan"
+  )
+  filename = f"{params['bhk_type']}_VastuPlan.dxf"
+  return Response(
+    content=dxf_bytes,
+    media_type="application/dxf",
+    headers={"Content-Disposition": f"attachment; filename={filename}"}
+  )
+
 
 @app.post("/generate-plan")
 def generate_plan(req: PlanRequest):
