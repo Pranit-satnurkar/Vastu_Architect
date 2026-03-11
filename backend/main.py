@@ -79,7 +79,8 @@ def generate_dxf(req: PlanRequest):
     params["bhk_type"], params["plot_w_ft"], params["plot_d_ft"], params["style"]
   )
   dxf_bytes = generate_dxf_from_template_rooms(
-    result["rooms"], result["plot_w_m"], result["plot_d_m"], "plan"
+    result["rooms"], result["plot_w_m"], result["plot_d_m"],
+    client_name=params["bhk_type"], bhk_type=params["bhk_type"]
   )
   filename = f"{params['bhk_type']}_VastuPlan.dxf"
   return Response(

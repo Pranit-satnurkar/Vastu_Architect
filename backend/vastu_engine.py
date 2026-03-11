@@ -4,6 +4,7 @@ import math
 import io
 import os
 import tempfile
+from datetime import date
 
 # --- 1. CONFIGURATION & LAYERS ---
 
@@ -164,15 +165,225 @@ def draw_wall_with_openings(msp, p1, p2, thickness, offset_dir, openings):
         draw_wall_with_hatch(msp, ep1, p2, thickness, offset_dir)
 
 
-def generate_dxf_from_template_rooms(rooms, plot_w, plot_d, client_name):
+def _merge_colinear_segments(seg_map, eps=0.005):
+    """
+    Remove wall segments that are entirely contained within a longer colinear segment
+    (e.g. a corridor wall that spans the full room stack on the other side).
+    Door/window openings are transferred to the containing segment with recalculated positions.
+    Returns the number of segments removed.
+    """
+    from collections import defaultdict
+
+    v_groups = defaultdict(list)   # x  → [(y1, y2, seg_key)]
+    h_groups = defaultdict(list)   # y  → [(x1, x2, seg_key)]
+
+    for seg in list(seg_map.keys()):
+        sp1, sp2 = seg
+        if abs(sp1[0] - sp2[0]) < eps:     # vertical
+            v_groups[round(sp1[0], 3)].append((sp1[1], sp2[1], seg))
+        elif abs(sp1[1] - sp2[1]) < eps:   # horizontal
+            h_groups[round(sp1[1], 3)].append((sp1[0], sp2[0], seg))
+
+    segs_to_remove = set()
+
+    for group in list(v_groups.values()) + list(h_groups.values()):
+        if len(group) <= 1:
+            continue
+        for (a1, a2, seg_a) in group:
+            if seg_a in segs_to_remove:
+                continue
+            for (b1, b2, seg_b) in group:
+                if seg_a is seg_b or seg_b in segs_to_remove:
+                    continue
+                if b1 <= a1 + eps and b2 >= a2 - eps:   # seg_a contained in seg_b
+                    b_len = b2 - b1
+                    for otype, odata in seg_map[seg_a]['openings']:
+                        a_len = a2 - a1
+                        abs_pos = a1 + odata['pos'] * a_len
+                        new_pos = (abs_pos - b1) / b_len
+                        seg_map[seg_b]['openings'].append(
+                            (otype, {'pos': max(0.01, min(0.99, new_pos)),
+                                     'width': odata['width']})
+                        )
+                    segs_to_remove.add(seg_a)
+                    break
+
+    for seg in segs_to_remove:
+        del seg_map[seg]
+    return len(segs_to_remove)
+
+
+def _clean_tjunctions(seg_map, wall_t, eps=0.005):
+    """
+    Trim wall segment endpoints at T-junctions by WALL_T/2 so perpendicular walls
+    meet cleanly without hatch overlap.
+    Convention: each wall's endpoint that falls exactly on a perpendicular wall's
+    centerline is pulled back by half the wall thickness.
+    Opening positions are recalculated after trimming.
+    """
+    HALF_T = wall_t / 2
+
+    h_ys = set()
+    v_xs = set()
+    for seg in seg_map:
+        sp1, sp2 = seg
+        if abs(sp1[1] - sp2[1]) < eps:
+            h_ys.add(round(sp1[1], 3))
+        elif abs(sp1[0] - sp2[0]) < eps:
+            v_xs.add(round(sp1[0], 3))
+
+    for seg, info in seg_map.items():
+        sp1, sp2 = seg
+        p1x, p1y = sp1
+        p2x, p2y = sp2
+        original_len = math.dist(sp1, sp2)
+
+        if abs(sp1[1] - sp2[1]) < eps:    # horizontal wall — trim x endpoints
+            if round(p1x, 3) in v_xs:
+                p1x += HALF_T
+            if round(p2x, 3) in v_xs:
+                p2x -= HALF_T
+        elif abs(sp1[0] - sp2[0]) < eps:  # vertical wall — trim y endpoints
+            if round(p1y, 3) in h_ys:
+                p1y += HALF_T
+            if round(p2y, 3) in h_ys:
+                p2y -= HALF_T
+
+        new_p1, new_p2 = (p1x, p1y), (p2x, p2y)
+        if new_p1 == sp1 and new_p2 == sp2:
+            continue
+
+        new_len = math.dist(new_p1, new_p2)
+        if new_len < 0.01:
+            continue  # wall trimmed to nothing (degenerate case)
+
+        trim_start = math.dist(sp1, new_p1)   # how far p1 moved inward
+
+        adjusted = []
+        for otype, odata in info['openings']:
+            abs_pos = odata['pos'] * original_len
+            new_pos = (abs_pos - trim_start) / new_len
+            adjusted.append((otype, {'pos': max(0.01, min(0.99, new_pos)),
+                                     'width': odata['width']}))
+        info['openings'] = adjusted
+        info['draw_p1'] = new_p1
+        info['draw_p2'] = new_p2
+
+
+def _setup_dimstyle(doc):
+    """Creates a named architectural dimension style for floor plans."""
+    if 'VASTU_DIM' not in doc.dimstyles:
+        doc.dimstyles.new('VASTU_DIM', dxfattribs={
+            'dimtxt':  0.35,   # text height (metres)
+            'dimasz':  0.18,   # arrowhead size
+            'dimexe':  0.10,   # extension line overshoot
+            'dimexo':  0.08,   # extension line offset from origin
+            'dimgap':  0.08,   # gap between dim line and text
+            'dimdec':  2,      # decimal places
+            'dimclrd': 6,      # dim line colour  (magenta)
+            'dimclre': 6,      # ext line colour
+            'dimclrt': 6,      # text colour
+        })
+
+
+def _add_dimension_chains(msp, rooms, plot_w, plot_d, eps):
+    """
+    Adds two dimension chains on the south and west sides of the plan.
+      Chain 1 (1.2 m out): individual room widths / depths for edge rooms.
+      Chain 2 (2.2 m out): overall plot width / depth.
+    """
+    DIM1, DIM2 = 1.2, 2.2
+    DS = 'VASTU_DIM'
+    LA = {'layer': 'A-ANNO-DIMS'}
+
+    # ── South edge: horizontal dimensions ─────────────────────────────────
+    south = sorted([r for r in rooms if r['y'] <= eps], key=lambda r: r['x'])
+    for r in south:
+        x1, x2 = r['x'], r['x'] + r['w']
+        bx = (x1 + x2) / 2
+        d = msp.add_linear_dim(base=(bx, -DIM1), p1=(x1, 0), p2=(x2, 0),
+                               angle=0, dimstyle=DS, dxfattribs=LA)
+        d.render()
+
+    # Overall plot width
+    d = msp.add_linear_dim(base=(plot_w / 2, -DIM2), p1=(0, 0), p2=(plot_w, 0),
+                           angle=0, dimstyle=DS, dxfattribs=LA)
+    d.render()
+
+    # ── West edge: vertical dimensions ────────────────────────────────────
+    west = sorted([r for r in rooms if r['x'] <= eps], key=lambda r: r['y'])
+    for r in west:
+        y1, y2 = r['y'], r['y'] + r['h']
+        by = (y1 + y2) / 2
+        d = msp.add_linear_dim(base=(-DIM1, by), p1=(0, y1), p2=(0, y2),
+                               angle=90, dimstyle=DS, dxfattribs=LA)
+        d.render()
+
+    # Overall plot depth
+    d = msp.add_linear_dim(base=(-DIM2, plot_d / 2), p1=(0, 0), p2=(0, plot_d),
+                           angle=90, dimstyle=DS, dxfattribs=LA)
+    d.render()
+
+
+def _draw_title_block(msp, plot_w, plot_d, bhk_type, client_name):
+    """
+    Draws a simple title block to the right of the floor plan.
+    Placed at x = plot_w + 3.5 to clear the north arrow.
+    """
+    TB_X  = plot_w + 3.5
+    TB_W  = 6.0
+    TB_H  = plot_d
+    LA_T  = {'layer': 'A-ANNO-TEXT'}
+    LA_D  = {'layer': 'A-ANNO-DIMS'}
+
+    rows = [
+        ("PROJECT",  "Vastu Architect AI"),
+        ("CLIENT",   client_name),
+        ("TYPE",     bhk_type),
+        ("PLOT",     f"{plot_w:.2f} \u00d7 {plot_d:.2f} m"),
+        ("SCALE",    "1 : 100"),
+        ("DATE",     date.today().strftime("%d-%b-%Y")),
+        ("DRAWN BY", "AI Generated"),
+    ]
+
+    row_h = TB_H / len(rows)
+
+    # Outer border
+    border = [(TB_X, 0), (TB_X + TB_W, 0),
+              (TB_X + TB_W, TB_H), (TB_X, TB_H), (TB_X, 0)]
+    msp.add_lwpolyline(border, dxfattribs={**LA_T, 'lineweight': 50})
+
+    for i, (label, value) in enumerate(rows):
+        y_top = TB_H - i * row_h
+        y_mid = y_top - row_h / 2
+
+        # Row separator
+        if i > 0:
+            msp.add_line((TB_X, y_top), (TB_X + TB_W, y_top), dxfattribs=LA_D)
+
+        # Vertical split between label and value
+        x_split = TB_X + 1.8
+        msp.add_line((x_split, y_top), (x_split, y_top - row_h), dxfattribs=LA_D)
+
+        # Label (small, left column)
+        msp.add_text(label, height=0.25, dxfattribs=LA_D).set_placement(
+            (TB_X + 0.15, y_mid), align=TextEntityAlignment.MIDDLE_LEFT)
+
+        # Value (larger, right column)
+        msp.add_text(value, height=0.38, dxfattribs=LA_T).set_placement(
+            ((x_split + TB_X + TB_W) / 2, y_mid), align=TextEntityAlignment.MIDDLE_CENTER)
+
+
+def generate_dxf_from_template_rooms(rooms, plot_w, plot_d, client_name, bhk_type=""):
     """
     Generates a professional DXF from the template room dicts
     (name, x, y, w, h, door, window).  Used by the FastAPI /generate-dxf endpoint.
-    Doors and windows from template metadata are correctly drawn in the output.
+    Includes doors, windows, dimension chains, area annotations, and a title block.
     """
     doc = ezdxf.new(dxfversion='R2010')
     doc.header['$INSUNITS'] = 4
     setup_layers(doc)
+    _setup_dimstyle(doc)
     msp = doc.modelspace()
 
     WALL_T = 0.23
@@ -225,20 +436,37 @@ def generate_dxf_from_template_rooms(rooms, plot_w, plot_d, client_name):
                     ('window', {'pos': room['window']['pos'], 'width': room['window']['width']})
                 )
 
-    # Draw all segments
-    for seg, info in seg_map.items():
-        draw_wall_with_openings(msp, seg[0], seg[1], WALL_T, info['offset_dir'], info['openings'])
+    # Clean up geometry before drawing
+    _merge_colinear_segments(seg_map)
+    _clean_tjunctions(seg_map, WALL_T)
 
-    # Room name annotations
+    # Draw all segments (use trimmed endpoints if set)
+    for seg, info in seg_map.items():
+        p1 = info.get('draw_p1', seg[0])
+        p2 = info.get('draw_p2', seg[1])
+        draw_wall_with_openings(msp, p1, p2, WALL_T, info['offset_dir'], info['openings'])
+
+    # Room name + area annotations
     for room in rooms:
         cx = room['x'] + room['w'] / 2
         cy = room['y'] + room['h'] / 2
         font_h = min(room['w'], room['h']) * 0.08
+        font_h = max(font_h, 0.15)  # floor so tiny rooms stay legible
+
         msp.add_text(
             room['name'], height=font_h,
             dxfattribs={'layer': 'A-ANNO-TEXT'}
-        ).set_placement((cx, cy), align=TextEntityAlignment.MIDDLE_CENTER)
+        ).set_placement((cx, cy + font_h * 0.7), align=TextEntityAlignment.MIDDLE_CENTER)
 
+        area = round(room['w'] * room['h'], 2)
+        area_label = f"{room['w']:.1f}\u00d7{room['h']:.1f}m  ({area:.1f}m\u00b2)"
+        msp.add_text(
+            area_label, height=font_h * 0.65,
+            dxfattribs={'layer': 'A-ANNO-DIMS'}
+        ).set_placement((cx, cy - font_h * 0.5), align=TextEntityAlignment.MIDDLE_CENTER)
+
+    _add_dimension_chains(msp, rooms, plot_w, plot_d, EPS)
+    _draw_title_block(msp, plot_w, plot_d, bhk_type, client_name)
     draw_north_arrow(msp, plot_w + 2, plot_d - 1, size=1.5)
     doc.audit()
 
