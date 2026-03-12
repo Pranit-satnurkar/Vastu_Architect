@@ -1,9 +1,9 @@
 from templates import get_plan
 
 def optimize_layout(bhk_type, plot_w_ft, plot_d_ft,
-                    style="modern", user_preferences=None):
+                    style="modern", user_preferences=None, force_template=None):
 
-  result = get_plan(bhk_type, plot_w_ft, plot_d_ft, style)
+  result = get_plan(bhk_type, plot_w_ft, plot_d_ft, style, force_template=force_template)
 
   ppm = 20
   for r in result["rooms"]:

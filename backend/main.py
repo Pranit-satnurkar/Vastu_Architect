@@ -60,6 +60,7 @@ class PlanRequest(BaseModel):
   plot_d_ft: float = 50.0
   style: str = "modern"
   prompt: str = ""
+  template_used: str = ""   # if set, forces this exact template (for DXF sync)
 
 @app.get("/health")
 def health():
@@ -77,7 +78,8 @@ def generate_dxf(req: PlanRequest):
     params = parse_prompt(req.prompt, params)
 
   result = optimize_layout(
-    params["bhk_type"], params["plot_w_ft"], params["plot_d_ft"], params["style"]
+    params["bhk_type"], params["plot_w_ft"], params["plot_d_ft"], params["style"],
+    force_template=req.template_used or None,
   )
   dxf_bytes = generate_dxf_from_template_rooms(
     result["rooms"], result["plot_w_m"], result["plot_d_m"],

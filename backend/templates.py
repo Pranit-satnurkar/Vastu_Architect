@@ -473,25 +473,28 @@ def _scale_constrained(rooms, target_w, target_d, orig_w, orig_d):
 
 # ---------------------------------------------------------------------------
 
-def get_plan(bhk_type, plot_w_ft, plot_d_ft, style="modern"):
+def get_plan(bhk_type, plot_w_ft, plot_d_ft, style="modern", force_template=None):
   import random
   FT = 0.3048
   plot_w = round(plot_w_ft * FT, 2)
   plot_d = round(plot_d_ft * FT, 2)
 
-  bhk_key = bhk_type.upper().replace(" ","")
-  matching = {k:v for k,v in PLANS.items() 
-              if k.startswith(bhk_key)}
-  if not matching:
-    matching = PLANS
+  if force_template and force_template in PLANS:
+    chosen_key, chosen_plan = force_template, PLANS[force_template]
+  else:
+    bhk_key = bhk_type.upper().replace(" ","")
+    matching = {k:v for k,v in PLANS.items()
+                if k.startswith(bhk_key)}
+    if not matching:
+      matching = PLANS
 
-  def size_diff(plan):
-    return abs(plan["plot_w"]-plot_w) + abs(plan["plot_d"]-plot_d)
+    def size_diff(plan):
+      return abs(plan["plot_w"]-plot_w) + abs(plan["plot_d"]-plot_d)
 
-  sorted_plans = sorted(matching.items(),
-                        key=lambda x: size_diff(x[1]))
-  top3 = sorted_plans[:3]
-  chosen_key, chosen_plan = random.choice(top3)
+    sorted_plans = sorted(matching.items(),
+                          key=lambda x: size_diff(x[1]))
+    top3 = sorted_plans[:3]
+    chosen_key, chosen_plan = random.choice(top3)
 
   constrained = _scale_constrained(
       chosen_plan["rooms"], plot_w, plot_d,

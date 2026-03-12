@@ -83,6 +83,7 @@ export default function VastuArchitectPage() {
           plot_d_ft: parseFloat(plotD),
           style: style,
           prompt: prompt,
+          template_used: planData?.template_used ?? "",
         }),
       });
       if (!res.ok) throw new Error("DXF generation failed");
