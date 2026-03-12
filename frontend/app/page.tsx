@@ -1,17 +1,18 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { 
-  Home, 
-  Ruler, 
-  Map, 
-  Palette, 
-  Sparkles, 
-  Download, 
-  Layout, 
-  Maximize2, 
-  AlertCircle, 
-  Loader2 
+import jsPDF from "jspdf";
+import {
+  Home,
+  Ruler,
+  Map,
+  Palette,
+  Sparkles,
+  Download,
+  Layout,
+  Maximize2,
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import FloorPlanCanvas from "../components/FloorPlanCanvas";
 import { clsx, type ClassValue } from "clsx";
@@ -37,17 +38,32 @@ export default function VastuArchitectPage() {
   const [plotD, setPlotD] = useState("50");
   const [style, setStyle] = useState("modern");
   const [prompt, setPrompt] = useState("");
+  const [units, setUnits] = useState<"ft" | "m">("ft");
   const [loading, setLoading] = useState(false);
   const [dxfLoading, setDxfLoading] = useState(false);
   const [planData, setPlanData] = useState<any>(null);
   const [error, setError] = useState("");
-  
+  const [clientName, setClientName] = useState("Vastu Architect");
+
   const stageRef = useRef<any>(null);
 
   const generatePlan = async () => {
     setLoading(true);
     setError("");
     try {
+      // First, verify backend is reachable
+      const healthCheck = await Promise.race([
+        fetch("http://localhost:8000/health"),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Backend timeout")), 3000)
+        ),
+      ]);
+
+      if (!healthCheck.ok) {
+        throw new Error("Backend health check failed");
+      }
+
+      // Now make the actual plan request
       const res = await fetch("http://localhost:8000/generate-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,13 +75,31 @@ export default function VastuArchitectPage() {
           prompt: prompt,
         }),
       });
-      
-      if (!res.ok) throw new Error("Failed to generate plan");
-      
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("Backend error:", errText);
+        throw new Error(`Backend returned ${res.status}: ${errText.substring(0, 100)}`);
+      }
+
       const data = await res.json();
       setPlanData(data);
-    } catch (e) {
-      setError("Failed to generate plan. Is the backend running?");
+      setError(""); // Clear any previous errors
+    } catch (e: any) {
+      const errorMsg = e?.message || String(e);
+      console.error("Plan generation error:", errorMsg);
+
+      // Provide helpful error messages
+      let friendlyError = "Failed to generate plan.";
+      if (errorMsg.includes("timeout") || errorMsg.includes("Failed to connect")) {
+        friendlyError += " Backend is not running. Start it with: uvicorn main:app --reload --port 8000";
+      } else if (errorMsg.includes("JSON")) {
+        friendlyError += " Backend returned invalid data. Check console for details.";
+      } else if (errorMsg.includes("500")) {
+        friendlyError += " Server error. Check backend logs.";
+      }
+
+      setError(friendlyError);
     } finally {
       setLoading(false);
     }
@@ -105,7 +139,11 @@ export default function VastuArchitectPage() {
 
   const downloadPNG = () => {
     if (stageRef.current) {
-      const uri = stageRef.current.toDataURL();
+      const uri = stageRef.current.toDataURL({
+        pixelRatio: 2,
+        mimeType: 'image/png',
+        quality: 1,
+      });
       const link = document.createElement("a");
       link.download = `Vastu_Plan_${bhkType}_${plotW}x${plotD}.png`;
       link.href = uri;
@@ -115,10 +153,134 @@ export default function VastuArchitectPage() {
     }
   };
 
+  const downloadPDF = () => {
+    const stage = stageRef.current;
+    if (!stage || !planData) return;
+
+    // Export canvas at 3x resolution for high-DPI printing
+    const dataURL = stage.toDataURL({
+      pixelRatio: 3,
+      mimeType: 'image/png',
+      quality: 1,
+    });
+
+    // Create A3 landscape PDF — better for floor plans
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a3'
+    });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    // Add floor plan image — full page with margins, no duplicate header above it
+    const margin = 15;
+    const imgWidth = pageWidth - margin * 2;
+    const imgHeight = pageHeight - 55;  // leave room for bottom title block
+    pdf.addImage(dataURL, 'PNG', margin, margin, imgWidth, imgHeight);
+
+    // Title block line
+    pdf.setDrawColor('#333333');
+    pdf.setLineWidth(0.25);
+    pdf.line(0, pageHeight - 40, pageWidth, pageHeight - 40);
+
+    // Title block content
+    // left side
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('VASTU ARCHITECT AI', 15, pageHeight - 25);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor('#888888');
+    pdf.text('AI-Powered Floor Plan Generator', 15, pageHeight - 15);
+
+    // center
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor('#000000');
+    pdf.text(
+      `Plot: ${plotW}ft × ${plotD}ft | ${bhkType}`,
+      pageWidth / 2,
+      pageHeight - 25,
+      { align: 'center' }
+    );
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor('#888888');
+    pdf.text(`Style: ${style}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
+
+    // right side
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor('#000000');
+    pdf.text(`Vastu Score: ${Math.round(planData?.compliance?.overall ?? 0)}/100`, pageWidth - 15, pageHeight - 25, { align: 'right' });
+    pdf.setFontSize(10);
+    const grade = planData?.compliance?.grade ?? '-';
+    // colored badge by grade
+    let gradeColor = '#888888';
+    if (grade.startsWith('A')) gradeColor = '#22c55e';
+    else if (grade.startsWith('B')) gradeColor = '#3b82f6';
+    else if (grade === 'C') gradeColor = '#f59e0b';
+    else if (grade === 'D') gradeColor = '#ef4444';
+    pdf.setFillColor(gradeColor);
+    pdf.rect(pageWidth - 40, pageHeight - 30, 30, 12, 'F');
+    pdf.setFontSize(9);
+    pdf.setTextColor('#ffffff');
+    pdf.text(`Grade ${grade}`, pageWidth - 25, pageHeight - 19, { align: 'center' });
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor('#888888');
+    pdf.text('pranit-vision.vercel.app', pageWidth - 15, pageHeight - 5, { align: 'right' });
+
+
+    pdf.save(`VastuPlan_${plotW}x${plotD}.pdf`);
+  };
+
+  const downloadDXF = async () => {
+    try {
+      if (!planData || !planData.rooms || planData.rooms.length === 0) {
+        alert("No plan generated yet. Generate a plan first.");
+        return;
+      }
+
+      const res = await fetch("http://localhost:8000/export-dxf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rooms: planData.rooms,
+          plot_w_m: planData.plot_w_m,
+          plot_d_m: planData.plot_d_m,
+          client_name: clientName || "Client",
+          unit_system: units === "m" ? "metric" : "ft"
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.text();
+        console.error("DXF Export Error:", error);
+        throw new Error("Failed to download DXF");
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${clientName || "VastuPlan"}_${planData.plot_w_m.toFixed(1)}x${planData.plot_d_m.toFixed(1)}m.dxf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("DXF download failed:", e);
+      alert("Failed to download DXF file. Is the backend running?");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-white font-sans selection:bg-accent/30">
       <div className="max-w-[1600px] mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[450px_1fr] gap-8">
-        
+
         {/* LEFT PANEL: INPUT FORM */}
         <aside className="bg-panel border border-border rounded-2xl p-6 h-fit sticky top-8 shadow-2xl">
           <header className="mb-8">
@@ -142,8 +304,8 @@ export default function VastuArchitectPage() {
                     onClick={() => setBhkType(type)}
                     className={cn(
                       "py-2 px-1 rounded-lg text-sm font-medium transition-all duration-200 border",
-                      bhkType === type 
-                        ? "bg-accent border-accent text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]" 
+                      bhkType === type
+                        ? "bg-accent border-accent text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
                         : "bg-border/20 border-border text-gray-500 hover:text-gray-300 hover:border-gray-600"
                     )}
                   >
@@ -206,8 +368,8 @@ export default function VastuArchitectPage() {
                     onClick={() => setStyle(s)}
                     className={cn(
                       "py-2 px-4 rounded-lg text-sm font-medium capitalize transition-all border",
-                      style === s 
-                        ? "bg-accent border-accent text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]" 
+                      style === s
+                        ? "bg-accent border-accent text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
                         : "bg-border/20 border-border text-gray-500 hover:text-gray-300"
                     )}
                   >
@@ -237,8 +399,8 @@ export default function VastuArchitectPage() {
               disabled={loading}
               className={cn(
                 "w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all duration-300",
-                loading 
-                  ? "bg-gray-700 cursor-not-allowed opacity-50" 
+                loading
+                  ? "bg-gray-700 cursor-not-allowed opacity-50"
                   : "bg-accent hover:bg-accent-hover text-white shadow-[0_10px_20px_-10px_rgba(99,102,241,0.6)]"
               )}
             >
@@ -256,9 +418,19 @@ export default function VastuArchitectPage() {
             </button>
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg p-4 text-sm flex items-start gap-3 animate-pulse">
-                <AlertCircle className="w-5 h-5 mt-0.5" />
-                <p>{error}</p>
+              <div className="bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg p-4 text-sm flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-semibold mb-1">{error}</p>
+                  {error.includes("Backend") && (
+                    <div className="text-xs text-red-400 mt-2 bg-black/20 p-2 rounded font-mono">
+                      <p className="mb-1">To fix, run in two terminals:</p>
+                      <p className="opacity-75">Terminal 1: cd backend &amp;&amp; python -m uvicorn main:app --reload --port 8000</p>
+                      <p className="opacity-75">Terminal 2: cd frontend &amp;&amp; npm run dev</p>
+                      <p className="mt-2 opacity-75">Or simply run: START_SERVERS.bat</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -272,8 +444,12 @@ export default function VastuArchitectPage() {
                 <div className="flex flex-wrap items-center justify-between mb-6 gap-4 border-b border-border pb-6">
                   <div className="flex items-center gap-6">
                     <div className="flex flex-col">
-                      <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">Template Used</span>
-                      <span className="text-white font-medium">{planData.template_used}</span>
+                      <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">Variant</span>
+                      <span className="text-white font-medium capitalize">
+                        {planData.layout_variant ?? "Standard"}
+                        <span className="text-gray-500 text-xs ml-2">#{planData.seed ?? planData.seed_used ?? "—"}</span>
+                      </span>
+                      <span className="text-[9px] text-gray-600 mt-0.5">Click Generate for a new variation</span>
                     </div>
                     <div className="h-8 w-px bg-border" />
                     <div className="flex flex-col">
@@ -283,34 +459,64 @@ export default function VastuArchitectPage() {
                     <div className="h-8 w-px bg-border" />
                     <div className="flex flex-col">
                       <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">Plot Dimensions</span>
-                      <span className="text-white font-medium">{planData.plot_w_m.toFixed(1)}m × {planData.plot_d_m.toFixed(1)}m</span>
+                      <span className="text-white font-medium">
+                        {units === "m"
+                          ? `${planData.plot_w_m.toFixed(1)}m × ${planData.plot_d_m.toFixed(1)}m`
+                          : `${Math.round(planData.plot_w_m * 3.28084)}'0" × ${Math.round(planData.plot_d_m * 3.28084)}'0"`
+                        }
+                      </span>
+                    </div>
+                    <div className="h-8 w-px bg-border" />
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setUnits("ft")}
+                        className={cn(
+                          "px-3 py-1 rounded text-sm font-semibold transition-colors",
+                          units === "ft"
+                            ? "bg-accent text-white"
+                            : "bg-border/40 text-gray-400 hover:text-gray-300"
+                        )}
+                      >
+                        ft
+                      </button>
+                      <button
+                        onClick={() => setUnits("m")}
+                        className={cn(
+                          "px-3 py-1 rounded text-sm font-semibold transition-colors",
+                          units === "m"
+                            ? "bg-accent text-white"
+                            : "bg-border/40 text-gray-400 hover:text-gray-300"
+                        )}
+                      >
+                        m
+                      </button>
                     </div>
                   </div>
 
                   <div className="flex gap-2">
-                    <button 
+                    <button
                       onClick={downloadPNG}
                       className="flex items-center gap-2 px-4 py-2 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors"
                     >
                       <Download className="w-4 h-4" /> PNG
                     </button>
                     <button
-                      onClick={downloadDXF}
-                      disabled={dxfLoading}
-                      className="flex items-center gap-2 px-4 py-2 border border-border text-white font-semibold rounded-lg hover:bg-border/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={downloadPDF}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                      {dxfLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Map className="w-4 h-4" />
-                      )}
-                      DXF
+                      <Download className="w-4 h-4" /> PDF
+                    </button>
+                    <button
+                      onClick={downloadDXF}
+                      className="flex items-center gap-2 px-4 py-2 border border-border text-white font-semibold rounded-lg hover:bg-border/40 transition-colors"
+                    >
+                      <Map className="w-4 h-4" /> DXF
                     </button>
                   </div>
                 </div>
 
                 <div className="flex-1 bg-white rounded-xl shadow-inner relative group">
-                  <FloorPlanCanvas data={planData} onStageRef={(ref) => (stageRef.current = ref)} />
+                  <FloorPlanCanvas data={planData} units={units} onStageRef={(ref) => (stageRef.current = ref)} />
                   <div className="absolute inset-x-0 bottom-4 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <div className="bg-black/80 px-4 py-2 rounded-full text-[10px] font-bold tracking-tighter text-white/50 backdrop-blur-md">
                       Interactive Konvas Rendering Engine
@@ -322,16 +528,10 @@ export default function VastuArchitectPage() {
                   <div className="bg-accent/5 border border-accent/20 rounded-2xl p-6 flex flex-col items-center justify-center">
                     <span className="text-[10px] uppercase font-bold text-accent tracking-widest mb-2">Vastu Score</span>
                     <div className="text-6xl font-black text-white leading-none">
-                      {planData.compliance?.overall ?? "—"}
+                      {Math.round(planData?.compliance?.overall ?? 0)}
                     </div>
-                    <div className={`mt-4 px-3 py-1 text-xs font-bold rounded-full ${
-                      (planData.compliance?.overall ?? 0) >= 80
-                        ? "bg-green-500/20 text-green-400"
-                        : (planData.compliance?.overall ?? 0) >= 60
-                        ? "bg-yellow-500/20 text-yellow-400"
-                        : "bg-red-500/20 text-red-400"
-                    }`}>
-                      GRADE {planData.compliance?.grade ?? "—"}
+                    <div className="mt-4 px-3 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded-full">
+                      GRADE {planData?.compliance?.grade ?? "-"}
                     </div>
                   </div>
                   <div className="bg-border/20 border border-border/40 rounded-2xl p-6">
@@ -339,27 +539,8 @@ export default function VastuArchitectPage() {
                       <Sparkles className="w-4 h-4 text-accent" /> Compliance Summary
                     </h3>
                     <p className="text-sm text-gray-400 leading-relaxed italic">
-                      "{planData.compliance?.summary ?? "Analyzing Vastu compliance..."}"
+                      "{planData?.compliance?.summary ?? "Vastu scoring coming next"}"
                     </p>
-                    {planData.compliance?.room_scores && (
-                      <div className="mt-4 flex flex-wrap gap-1.5">
-                        {planData.compliance.room_scores.map((rs: any) => (
-                          <span
-                            key={rs.name}
-                            title={`${rs.name}: ${rs.quadrant} (preferred: ${rs.preferred.join(", ")}) — score ${rs.score}`}
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              rs.score >= 80
-                                ? "bg-green-500/15 text-green-400"
-                                : rs.score >= 50
-                                ? "bg-yellow-500/15 text-yellow-400"
-                                : "bg-red-500/15 text-red-400"
-                            }`}
-                          >
-                            {rs.name.replace("Master Bedroom", "Master Bed").replace("Bedroom", "Bed").replace("Living Room", "Living").replace("Kitchen", "Kitchen")} {rs.quadrant}
-                          </span>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </div>
               </>
@@ -370,7 +551,7 @@ export default function VastuArchitectPage() {
                 </div>
                 <h2 className="text-xl font-bold mb-2">Architectural Blueprint Output</h2>
                 <p className="text-gray-500 max-w-sm">Configure your requirements on the left to generate an AI-optimized, Vastu-compliant floor plan.</p>
-                
+
                 <div className="mt-12 w-full max-w-md border border-dashed border-border rounded-xl aspect-[4/3] flex items-center justify-center text-gray-700 font-mono text-xs">
                   READY_FOR_CALCULATION
                 </div>
