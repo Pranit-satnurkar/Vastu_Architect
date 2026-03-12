@@ -38,6 +38,7 @@ export default function VastuArchitectPage() {
   const [style, setStyle] = useState("modern");
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
+  const [dxfLoading, setDxfLoading] = useState(false);
   const [planData, setPlanData] = useState<any>(null);
   const [error, setError] = useState("");
   
@@ -67,6 +68,37 @@ export default function VastuArchitectPage() {
       setError("Failed to generate plan. Is the backend running?");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const downloadDXF = async () => {
+    setDxfLoading(true);
+    try {
+      const res = await fetch("http://localhost:8000/generate-dxf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bhk_type: bhkType,
+          plot_w_ft: parseFloat(plotW),
+          plot_d_ft: parseFloat(plotD),
+          style: style,
+          prompt: prompt,
+        }),
+      });
+      if (!res.ok) throw new Error("DXF generation failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${bhkType}_VastuPlan_${plotW}x${plotD}.dxf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Failed to generate DXF. Is the backend running?");
+    } finally {
+      setDxfLoading(false);
     }
   };
 
@@ -261,8 +293,17 @@ export default function VastuArchitectPage() {
                     >
                       <Download className="w-4 h-4" /> PNG
                     </button>
-                    <button className="flex items-center gap-2 px-4 py-2 border border-border text-white font-semibold rounded-lg hover:bg-border/40 transition-colors">
-                      <Map className="w-4 h-4" /> DXF
+                    <button
+                      onClick={downloadDXF}
+                      disabled={dxfLoading}
+                      className="flex items-center gap-2 px-4 py-2 border border-border text-white font-semibold rounded-lg hover:bg-border/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {dxfLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Map className="w-4 h-4" />
+                      )}
+                      DXF
                     </button>
                   </div>
                 </div>
@@ -279,16 +320,45 @@ export default function VastuArchitectPage() {
                 <div className="mt-8 grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-6">
                   <div className="bg-accent/5 border border-accent/20 rounded-2xl p-6 flex flex-col items-center justify-center">
                     <span className="text-[10px] uppercase font-bold text-accent tracking-widest mb-2">Vastu Score</span>
-                    <div className="text-6xl font-black text-white leading-none">88</div>
-                    <div className="mt-4 px-3 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded-full">GRADE A+</div>
+                    <div className="text-6xl font-black text-white leading-none">
+                      {planData.compliance?.overall ?? "—"}
+                    </div>
+                    <div className={`mt-4 px-3 py-1 text-xs font-bold rounded-full ${
+                      (planData.compliance?.overall ?? 0) >= 80
+                        ? "bg-green-500/20 text-green-400"
+                        : (planData.compliance?.overall ?? 0) >= 60
+                        ? "bg-yellow-500/20 text-yellow-400"
+                        : "bg-red-500/20 text-red-400"
+                    }`}>
+                      GRADE {planData.compliance?.grade ?? "—"}
+                    </div>
                   </div>
                   <div className="bg-border/20 border border-border/40 rounded-2xl p-6">
                     <h3 className="text-sm font-bold flex items-center gap-2 mb-3">
                       <Sparkles className="w-4 h-4 text-accent" /> Compliance Summary
                     </h3>
                     <p className="text-sm text-gray-400 leading-relaxed italic">
-                      "The layout follows the Padavinyasa grid system. Master Bedroom is correctly placed in the Nairutya (South-West) zone, while the Kitchen occupies the Agneya (South-East). Open space is adequate in the Ishanya (North-East)."
+                      "{planData.compliance?.summary ?? "Analyzing Vastu compliance..."}"
                     </p>
+                    {planData.compliance?.room_scores && (
+                      <div className="mt-4 flex flex-wrap gap-1.5">
+                        {planData.compliance.room_scores.map((rs: any) => (
+                          <span
+                            key={rs.name}
+                            title={`${rs.name}: ${rs.quadrant} (preferred: ${rs.preferred.join(", ")}) — score ${rs.score}`}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              rs.score >= 80
+                                ? "bg-green-500/15 text-green-400"
+                                : rs.score >= 50
+                                ? "bg-yellow-500/15 text-yellow-400"
+                                : "bg-red-500/15 text-red-400"
+                            }`}
+                          >
+                            {rs.name.replace("Master Bedroom", "Master Bed").replace("Bedroom", "Bed").replace("Living Room", "Living").replace("Kitchen", "Kitchen")} {rs.quadrant}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </>

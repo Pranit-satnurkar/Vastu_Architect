@@ -4,6 +4,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from spatial_optimizer import optimize_layout
 from vastu_engine import generate_dxf_from_template_rooms
+from vastu_scorer import score_plan
 
 import google.generativeai as genai
 import json
@@ -107,5 +108,8 @@ def generate_plan(req: PlanRequest):
     params["plot_w_ft"],
     params["plot_d_ft"],
     params["style"]
+  )
+  result["compliance"] = score_plan(
+    result["rooms"], result["plot_w_m"], result["plot_d_m"]
   )
   return result
