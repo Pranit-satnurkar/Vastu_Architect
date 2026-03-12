@@ -105,38 +105,6 @@ export default function VastuArchitectPage() {
     }
   };
 
-  const downloadDXF = async () => {
-    setDxfLoading(true);
-    try {
-      const res = await fetch("http://localhost:8000/generate-dxf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bhk_type: bhkType,
-          plot_w_ft: parseFloat(plotW),
-          plot_d_ft: parseFloat(plotD),
-          style: style,
-          prompt: prompt,
-          template_used: planData?.template_used ?? "",
-        }),
-      });
-      if (!res.ok) throw new Error("DXF generation failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${bhkType}_VastuPlan_${plotW}x${plotD}.dxf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch {
-      setError("Failed to generate DXF. Is the backend running?");
-    } finally {
-      setDxfLoading(false);
-    }
-  };
-
   const downloadPNG = () => {
     if (stageRef.current) {
       const uri = stageRef.current.toDataURL({
