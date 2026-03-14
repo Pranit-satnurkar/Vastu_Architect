@@ -1,0 +1,10 @@
+--- 1BHK 20x30 Debug ---
+Invalid: {'name': 'Living / Dining', 'x': 3.33, 'y': 0.23, 'w': 1.34, 'h': 4.49, 'door': {'wall': 'W', 'pos': 0.5, 'width': 1.2}, 'window': {'wall': 'N', 'pos': 0.5, 'width': 1.5}} total_area: 0
+Invalid: {'name': 'Living / Dining', 'x': 3.33, 'y': 0.23, 'w': 1.34, 'h': 4.49, 'door': {'wall': 'W', 'pos': 0.5, 'width': 1.2}, 'window': {'wall': 'N', 'pos': 0.5, 'width': 1.5}} total_area: 0
+Invalid: {'name': 'Living / Dining', 'x': 3.33, 'y': 0.23, 'w': 1.34, 'h': 4.09, 'door': {'wall': 'W', 'pos': 0.5, 'width': 1.2}, 'window': {'wall': 'N', 'pos': 0.5, 'width': 1.5}} total_area: 0
+Invalid: {'name': 'Living / Dining', 'x': 3.33, 'y': 0.23, 'w': 1.34, 'h': 4.09, 'door': {'wall': 'W', 'pos': 0.5, 'width': 1.2}, 'window': {'wall': 'N', 'pos': 0.5, 'width': 1.5}} total_area: 0
+Invalid: {'name': 'Living / Dining', 'x': 3.33, 'y': 0.23, 'w': 1.34, 'h': 4.18, 'door': {'wall': 'W', 'pos': 0.5, 'width': 1.2}, 'window': {'wall': 'N', 'pos': 0.5, 'width': 1.5}} total_area: 0
+Invalid: {'name': 'Living / Dining', 'x': 3.33, 'y': 0.23, 'w': 1.34, 'h': 4.18, 'door': {'wall': 'W', 'pos': 0.5, 'width': 1.2}, 'window': {'wall': 'N', 'pos': 0.5, 'width': 1.5}} total_area: 0
+Invalid: {'name': 'Living / Dining', 'x': 3.33, 'y': 0.23, 'w': 1.34, 'h': 4.21, 'door': {'wall': 'W', 'pos': 0.5, 'width': 1.2}, 'window': {'wall': 'N', 'pos': 0.5, 'width': 1.5}} total_area: 0
+Invalid: {'name': 'Living / Dining', 'x': 3.33, 'y': 0.23, 'w': 1.34, 'h': 4.21, 'door': {'wall': 'W', 'pos': 0.5, 'width': 1.2}, 'window': {'wall': 'N', 'pos': 0.5, 'width': 1.5}} total_area: 0
+ERROR: Failed to generate valid layout after 3 retries.

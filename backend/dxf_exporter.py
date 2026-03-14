@@ -17,6 +17,22 @@ def meters_to_feet_inches(meters):
     return f"{feet}'{inches_str}\""
 
 
+def is_outer_wall(val, plot_max, tolerance=300):
+    return val <= tolerance or val >= (plot_max - tolerance)
+
+
+def wall_touches_boundary(room, wall, plot_w, plot_d, tol=0.35):
+    if wall == "N":
+        return room["y"] <= tol
+    if wall == "S":
+        return (room["y"] + room["h"]) >= (plot_d - tol)
+    if wall == "W":
+        return room["x"] <= tol
+    if wall == "E":
+        return (room["x"] + room["w"]) >= (plot_w - tol)
+    return False
+
+
 def generate_professional_dxf(rooms_data, plot_w_m, plot_d_m, client_name, unit_system="metric"):
     """
     Generate professional architectural DXF.
@@ -34,7 +50,8 @@ def generate_professional_dxf(rooms_data, plot_w_m, plot_d_m, client_name, unit_
 
     # ── Layers (AutoCAD dark-bg palette) ─────────────────────────────
     layer_specs = {
-        'A-WALL':      7,   # white  — room walls
+        'A-WALL-EXT':  7,   # white  — outer walls
+        'A-WALL-INT':  7,   # white  — inner walls
         'A-WALL-PLOT': 7,   # white  — plot boundary (heavier)
         'A-ANNO':      3,   # green  — room names
         'A-DIMS':      2,   # yellow — dimension text
@@ -54,29 +71,76 @@ def generate_professional_dxf(rooms_data, plot_w_m, plot_d_m, client_name, unit_
         return (plot_d_m - y_m - h_m) * 1000.0
 
     # ── STEP 1: Collect unique wall segments ──────────────────────────
-    walls = set()
+    OUTER_GAP = 115   # mm (represents 0.23m wall)
+    INNER_GAP = 75    # mm (represents 0.15m wall)
+    SCALE = 1000      # meters to mm
+
+    wall_segments = {}  # key = normalized segment, value = isOuter bool
+
+    def add_wall_segment(x1, y1, x2, y2, plot_w_mm, plot_d_mm):
+        # Normalize direction
+        if (x1, y1) > (x2, y2):
+            x1, y1, x2, y2 = x2, y2, x1, y1
+        
+        key = (round(x1/10)*10, round(y1/10)*10,
+               round(x2/10)*10, round(y2/10)*10)
+        
+        # Wall is outer if either endpoint touches boundary
+        outer = (
+            is_outer_wall(x1, plot_w_mm) or
+            is_outer_wall(x2, plot_w_mm) or
+            is_outer_wall(y1, plot_d_mm) or
+            is_outer_wall(y2, plot_d_mm)
+        )
+        
+        # Once marked outer, keep it outer
+        if key in wall_segments:
+            wall_segments[key] = wall_segments[key] or outer
+        else:
+            wall_segments[key] = outer
 
     for room in rooms_data:
-        x1 = room["x"] * 1000
-        y1 = (plot_d_m - room["y"] - room["h"]) * 1000
-        x2 = (room["x"] + room["w"]) * 1000
-        y2 = (plot_d_m - room["y"]) * 1000
+        x1 = room["x"] * SCALE
+        y1 = fy(room["y"], room["h"])
+        x2 = x1 + room["w"] * SCALE
+        y2 = y1 + room["h"] * SCALE
+        
+        plot_w_mm = plot_w_m * SCALE
+        plot_d_mm = plot_d_m * SCALE
+        
+        add_wall_segment(x1, y1, x2, y1, plot_w_mm, plot_d_mm)
+        add_wall_segment(x2, y1, x2, y2, plot_w_mm, plot_d_mm)
+        add_wall_segment(x2, y2, x1, y2, plot_w_mm, plot_d_mm)
+        add_wall_segment(x1, y2, x1, y1, plot_w_mm, plot_d_mm)
 
-        # Add 4 walls as normalized tuples
-        # Round to nearest 10mm to handle float errors
-        for seg in [
-            ((round(x1/10)*10, round(y1/10)*10), (round(x2/10)*10, round(y1/10)*10)),  # bottom
-            ((round(x2/10)*10, round(y1/10)*10), (round(x2/10)*10, round(y2/10)*10)),  # right
-            ((round(x1/10)*10, round(y2/10)*10), (round(x2/10)*10, round(y2/10)*10)),  # top
-            ((round(x1/10)*10, round(y1/10)*10), (round(x1/10)*10, round(y2/10)*10)),  # left
-        ]:
-            normalized = tuple(sorted(seg))
-            walls.add(normalized)
-
-    # ── STEP 2: Draw each unique wall segment once ────────────────────
-    for (p1, p2) in walls:
-        msp.add_line(p1, p2,
-                     dxfattribs={"layer": "A-WALL"})
+    # ── STEP 2: Draw each wall as two parallel lines ────────────────────
+    for (wx1, wy1, wx2, wy2), is_outer in wall_segments.items():
+        gap = OUTER_GAP / 2 if is_outer else INNER_GAP / 2
+        layer = "A-WALL-EXT" if is_outer else "A-WALL-INT"
+        lw = 70 if is_outer else 25
+        
+        is_horizontal = abs(wy2 - wy1) < 10
+        
+        if is_horizontal:
+            # Two lines above and below center
+            msp.add_line(
+                (wx1, wy1 + gap), (wx2, wy1 + gap),
+                dxfattribs={"layer": layer, "lineweight": lw}
+            )
+            msp.add_line(
+                (wx1, wy1 - gap), (wx2, wy1 - gap),
+                dxfattribs={"layer": layer, "lineweight": lw}
+            )
+        else:
+            # Two lines left and right of center
+            msp.add_line(
+                (wx1 + gap, wy1), (wx1 + gap, wy2),
+                dxfattribs={"layer": layer, "lineweight": lw}
+            )
+            msp.add_line(
+                (wx1 - gap, wy1), (wx1 - gap, wy2),
+                dxfattribs={"layer": layer, "lineweight": lw}
+            )
 
     # ── STEP 3: Plot boundary — heavier, separate layer ──────────────
     msp.add_lwpolyline(
@@ -179,6 +243,9 @@ def generate_professional_dxf(rooms_data, plot_w_m, plot_d_m, client_name, unit_
         # ── Windows ──────────────────────────────────────────────────
         win = room.get('window')
         if win:
+            if not wall_touches_boundary(room, win["wall"], plot_w_m, plot_d_m):
+                continue
+            
             hw = win.get('width', 1.2) * 500.0
             wp = win.get('pos', 0.5)
             ww = win['wall']

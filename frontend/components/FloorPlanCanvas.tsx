@@ -81,6 +81,17 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ data, units = "ft", o
         return '#dc2626'; // red
     };
 
+    // Helper: Validate window is on plot boundary
+    const wallTouchesBoundary = (room: any, wall: string, plot_w_m: number, plot_d_m: number) => {
+        const TOL = 0.35;
+        if (wall === "N") return room.y <= TOL;
+        if (wall === "S") return (room.y + room.h) >= (plot_d_m - TOL);
+        if (wall === "W") return room.x <= TOL;
+        if (wall === "E") return (room.x + room.w) >= (plot_w_m - TOL);
+        return false;
+    };
+
+
     // Render window with 3 perpendicular ticks + long line
     const renderWindow = (room: any, win: any) => {
         const rx = offsetX + room.x * ppm;
@@ -161,146 +172,256 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ data, units = "ft", o
                     {/* WHITE BACKGROUND */}
                     <Rect x={0} y={0} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} fill="white" />
 
-                    {/* PLOT BOUNDARY - OUTER (thick) */}
-                    <Rect
-                        x={offsetX}
-                        y={offsetY}
-                        width={plotWpx}
-                        height={plotHpx}
-                        stroke="#000000"
-                        strokeWidth={4}
-                        fill="white"
-                    />
-
-                    {/* PLOT BOUNDARY - INNER (thin wall line) */}
-                    <Rect
-                        x={offsetX + WALL * ppm}
-                        y={offsetY + WALL * ppm}
-                        width={plotWpx - 2 * WALL * ppm}
-                        height={plotHpx - 2 * WALL * ppm}
-                        stroke="#000000"
-                        strokeWidth={1.5}
-                        fill="transparent"
-                    />
 
                     {/* ROOMS */}
+                    {/* 1. ROOM FILLS (Bottom-most) */}
                     {data.rooms.map((room: any, i: number) => {
                         const roomColor = ROOM_COLORS[room.name] || ROOM_COLORS['default'];
                         const rx = offsetX + room.x * ppm;
                         const ry = offsetY + room.y * ppm;
-                        const rw_px = room.w * ppm;
-                        const rh_px = room.h * ppm;
+                        const rw = room.w * ppm;
+                        const rh = room.h * ppm;
 
                         return (
-                            <Group key={i}>
-                                {/* Outer wall (thick) */}
+                            <Rect
+                                key={`fill-${i}`}
+                                x={rx}
+                                y={ry}
+                                width={rw}
+                                height={rh}
+                                fill={roomColor}
+                                stroke="transparent"
+                            />
+                        );
+                    })}
+
+                    {/* 2. COLLECT WALL SEGMENTS & DRAW WALL FILLS + LINES */}
+                    {(() => {
+                        const wallSegments: any[] = [];
+                        const addWall = (x1: number, y1: number, x2: number, y2: number, isOuter: boolean) => {
+                            // Deduplication: check if this segment (or reverse) already exists
+                            const exists = wallSegments.some(w =>
+                                (Math.abs(w.x1 - x1) < 2 && Math.abs(w.y1 - y1) < 2 && Math.abs(w.x2 - x2) < 2 && Math.abs(w.y2 - y2) < 2) ||
+                                (Math.abs(w.x1 - x2) < 2 && Math.abs(w.y1 - y2) < 2 && Math.abs(w.x2 - x1) < 2 && Math.abs(w.y2 - y1) < 2)
+                            );
+                            if (!exists) {
+                                wallSegments.push({ x1, y1, x2, y2, isOuter });
+                            }
+                        };
+
+                        data.rooms.forEach((room: any) => {
+                            const rx1 = offsetX + room.x * ppm;
+                            const ry1 = offsetY + room.y * ppm;
+                            const rx2 = rx1 + room.w * ppm;
+                            const ry2 = ry1 + room.h * ppm;
+
+                            const isN_outer = room.y <= 0.30;
+                            const isS_outer = (room.y + room.h) >= (data.plot_d_m - 0.30);
+                            const isW_outer = room.x <= 0.30;
+                            const isE_outer = (room.x + room.w) >= (data.plot_w_m - 0.30);
+
+                            addWall(rx1, ry1, rx2, ry1, isN_outer); // north
+                            addWall(rx1, ry2, rx2, ry2, isS_outer); // south
+                            addWall(rx1, ry1, rx1, ry2, isW_outer); // west
+                            addWall(rx2, ry1, rx2, ry2, isE_outer); // east
+                        });
+
+                        return wallSegments.map((w, i) => {
+                            const isOuter = w.isOuter;
+                            const isHorizontal = Math.abs(w.y1 - w.y2) < 1;
+                            const gap = isOuter ? 5 : 2.5;
+                            const half = gap / 2;
+                            const strokeWidth = isOuter ? 1.5 : 1;
+                            const color = "#1a1a1a";
+
+                            if (isHorizontal) {
+                                const x1_ext = w.x1 - half;
+                                const x2_ext = w.x2 + half;
+                                return (
+                                    <Group key={`wall-${i}`}>
+                                        {/* Wall White Fill */}
+                                        <Rect
+                                            x={x1_ext}
+                                            y={w.y1 - half}
+                                            width={x2_ext - x1_ext}
+                                            height={gap}
+                                            fill="white"
+                                            stroke="transparent"
+                                        />
+                                        {/* Top Line */}
+                                        <Line
+                                            points={[x1_ext, w.y1 - half, x2_ext, w.y1 - half]}
+                                            stroke={color}
+                                            strokeWidth={strokeWidth}
+                                        />
+                                        {/* Bottom Line */}
+                                        <Line
+                                            points={[x1_ext, w.y1 + half, x2_ext, w.y1 + half]}
+                                            stroke={color}
+                                            strokeWidth={strokeWidth}
+                                        />
+                                    </Group>
+                                );
+                            } else {
+                                const y1_ext = w.y1 - half;
+                                const y2_ext = w.y2 + half;
+                                return (
+                                    <Group key={`wall-${i}`}>
+                                        {/* Wall White Fill */}
+                                        <Rect
+                                            x={w.x1 - half}
+                                            y={y1_ext}
+                                            width={gap}
+                                            height={y2_ext - y1_ext}
+                                            fill="white"
+                                            stroke="transparent"
+                                        />
+                                        {/* Left Line */}
+                                        <Line
+                                            points={[w.x1 - half, y1_ext, w.x1 - half, y2_ext]}
+                                            stroke={color}
+                                            strokeWidth={strokeWidth}
+                                        />
+                                        {/* Right Line */}
+                                        <Line
+                                            points={[w.x1 + half, y1_ext, w.x1 + half, y2_ext]}
+                                            stroke={color}
+                                            strokeWidth={strokeWidth}
+                                        />
+                                    </Group>
+                                );
+                            }
+                        });
+                    })()}
+
+                    {/* 3. DOOR CLEARING & ARCS */}
+                    {data.rooms.map((room: any, i: number) => {
+                        if (!room.door) return null;
+                        const rx = offsetX + room.x * ppm;
+                        const ry = offsetY + room.y * ppm;
+                        const rw = room.w * ppm;
+                        const rh = room.h * ppm;
+
+                        const isOuterWall = (room.door.wall === 'N' && room.y <= 0.30) ||
+                                           (room.door.wall === 'S' && (room.y + room.h) >= (data.plot_d_m - 0.30)) ||
+                                           (room.door.wall === 'W' && room.x <= 0.30) ||
+                                           (room.door.wall === 'E' && (room.x + room.w) >= (data.plot_w_m - 0.30));
+                        
+                        const gap = isOuterWall ? 5 : 2.5;
+                        const doorW = room.door.width * ppm;
+                        const roomColor = ROOM_COLORS[room.name] || ROOM_COLORS['default'];
+
+                        let clearRect = null;
+                        const dx = room.door.wall === 'W' ? rx : (room.door.wall === 'E' ? rx + rw : (rx + rw * room.door.pos));
+                        const dy = room.door.wall === 'N' ? ry : (room.door.wall === 'S' ? ry + rh : (ry + rh * room.door.pos));
+
+                        if (room.door.wall === 'N' || room.door.wall === 'S') {
+                            clearRect = (
                                 <Rect
-                                    x={rx}
-                                    y={ry}
-                                    width={rw_px}
-                                    height={rh_px}
+                                    x={dx - doorW / 2}
+                                    y={dy - (gap + 4) / 2}
+                                    width={doorW}
+                                    height={gap + 4}
                                     fill={roomColor}
-                                    stroke="#000000"
-                                    strokeWidth={5}
                                 />
-
-                                {/* Inner wall line (thin) */}
+                            );
+                        } else {
+                            clearRect = (
                                 <Rect
-                                    x={rx + 4}
-                                    y={ry + 4}
-                                    width={rw_px - 8}
-                                    height={rh_px - 8}
-                                    fill="transparent"
-                                    stroke="#333333"
-                                    strokeWidth={1}
+                                    x={dx - (gap + 4) / 2}
+                                    y={dy - doorW / 2}
+                                    width={gap + 4}
+                                    height={doorW}
+                                    fill={roomColor}
                                 />
+                            );
+                        }
 
-                                {/* Room Name (with Corridor rotation) */}
-                                {room.name === "Corridor" && rh_px > rw_px ? (
+                        const maxRadius = Math.min(room.w, room.h) * ppm * 0.35;
+                        let radius = Math.max(0, room.door.width * ppm);
+                        if (room.name?.toLowerCase().includes('toilet')) {
+                            radius = Math.min(radius, room.w * ppm * 0.5, room.h * ppm * 0.5);
+                        } else {
+                            radius = Math.min(radius, maxRadius);
+                        }
+
+                        return (
+                            <Group key={`door-${i}`}>
+                                {clearRect}
+                                {radius > 0 && (
+                                    <Arc
+                                        x={dx}
+                                        y={dy}
+                                        innerRadius={0}
+                                        outerRadius={radius}
+                                        angle={90}
+                                        rotation={
+                                            room.door.wall === 'N' ? 0 :
+                                            room.door.wall === 'E' ? 90 :
+                                            room.door.wall === 'S' ? 180 : 270
+                                        }
+                                        stroke="#1e293b"
+                                        strokeWidth={2}
+                                    />
+                                )}
+                            </Group>
+                        );
+                    })}
+
+                    {/* 4. WINDOWS (On top of walls) */}
+                    {data.rooms.map((room: any, i: number) => {
+                        if (!room.window) return null;
+                        if (!wallTouchesBoundary(room, room.window.wall, data.plot_w_m, data.plot_d_m)) return null;
+                        
+                        return renderWindow(room, room.window);
+                    })}
+
+                    {/* 5. TEXT LABELS (On top) */}
+                    {data.rooms.map((room: any, i: number) => {
+                        const rx = offsetX + room.x * ppm;
+                        const ry = offsetY + room.y * ppm;
+                        const rw = room.w * ppm;
+                        const rh = room.h * ppm;
+
+                        return (
+                            <Group key={`labels-${i}`}>
+                                {room.name === "Corridor" && rh > rw ? (
                                     <Text
-                                        x={rx + rw_px / 2}
-                                        y={ry + rh_px / 2}
+                                        x={rx + rw / 2}
+                                        y={ry + rh / 2}
                                         text="Corridor"
                                         fontSize={9}
                                         fontStyle="bold"
                                         fill="#555555"
                                         rotation={-90}
-                                        offsetX={0}
-                                        offsetY={0}
                                         align="center"
                                         verticalAlign="middle"
                                     />
                                 ) : (
-                                    rw_px >= 45 && rh_px >= 40 && (
-                                        <Text
-                                            x={rx}
-                                            y={ry + rh_px / 2 - 12}
-                                            width={rw_px}
-                                            text={room.name}
-                                            fontSize={Math.min(rw_px / 7, rh_px / 5, 13)}
-                                            fontStyle="bold"
-                                            fill="#1a1a1a"
-                                            align="center"
-                                        />
+                                    rw >= 45 && rh >= 40 && (
+                                        <>
+                                            <Text
+                                                x={rx}
+                                                y={ry + rh / 2 - 12}
+                                                width={rw}
+                                                text={room.name}
+                                                fontSize={Math.min(rw / 7, rh / 5, 13)}
+                                                fontStyle="bold"
+                                                fill="#1a1a1a"
+                                                align="center"
+                                            />
+                                            <Text
+                                                x={rx}
+                                                y={ry + rh / 2 + 4}
+                                                width={rw}
+                                                text={`${getDimensionText(room.w, units)} × ${getDimensionText(room.h, units)}`}
+                                                fontSize={Math.min(rw / 8, rh / 6, 11)}
+                                                fill="#555555"
+                                                align="center"
+                                            />
+                                        </>
                                     )
                                 )}
-
-                                {/* Room Dimensions (W × H) */}
-                                {rw_px >= 45 && rh_px >= 40 && (
-                                    <Text
-                                        x={rx}
-                                        y={ry + rh_px / 2 + 4}
-                                        width={rw_px}
-                                        text={`${getDimensionText(room.w, units)} × ${getDimensionText(room.h, units)}`}
-                                        fontSize={Math.min(rw_px / 8, rh_px / 6, 11)}
-                                        fill="#555555"
-                                        align="center"
-                                    />
-                                )}
-
-                                {/* Doors */}
-                                {room.door && (() => {
-                                    const maxRadius = Math.min(room.w, room.h) * ppm * 0.35;
-                                    let radius = Math.max(0, room.door.width * ppm);
-                                    if (room.name?.toLowerCase().includes('toilet')) {
-                                        radius = Math.min(radius, room.w * ppm * 0.5, room.h * ppm * 0.5);
-                                    } else {
-                                        radius = Math.min(radius, maxRadius);
-                                    }
-                                    if (radius === 0) return null;
-                                    return (
-                                        <Arc key="door"
-                                            x={room.door.wall === 'W' ? rx : (room.door.wall === 'E' ? rx + rw_px : (rx + rw_px * room.door.pos))}
-                                            y={room.door.wall === 'N' ? ry : (room.door.wall === 'S' ? ry + rh_px : (ry + rh_px * room.door.pos))}
-                                            innerRadius={0}
-                                            outerRadius={radius}
-                                            angle={90}
-                                            rotation={
-                                                room.door.wall === 'N' ? 0 :
-                                                    room.door.wall === 'E' ? 90 :
-                                                        room.door.wall === 'S' ? 180 : 270
-                                            }
-                                            stroke="#1e293b"
-                                            strokeWidth={2}
-                                        />
-                                    );
-                                })()}
-
-                                {/* Windows */}
-                                {room.window && (() => {
-                                    let show = false;
-                                    if (room.window.wall === 'N') {
-                                        show = room.y <= WALL + 0.05;
-                                    } else if (room.window.wall === 'S') {
-                                        show = room.y + room.h >= data.plot_d_m - WALL - 0.05;
-                                    } else if (room.window.wall === 'E') {
-                                        show = room.x + room.w >= data.plot_w_m - WALL - 0.05;
-                                    } else if (room.window.wall === 'W') {
-                                        show = room.x <= WALL + 0.05;
-                                    }
-                                    if (!show) return null;
-                                    return renderWindow(room, room.window);
-                                })()}
                             </Group>
                         );
                     })}
@@ -361,71 +482,13 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ data, units = "ft", o
                         <Text x={offsetX} y={offsetY + plotHpx + 21} text="5m" fontSize={9} fill="#333" align="left" />
                     </Group>
 
+
                     {/* NORTH ARROW - Top Right */}
                     <Group key="north-arrow" x={offsetX + plotWpx - 20} y={offsetY + 20}>
                         <Arrow points={[0, 15, 0, 0]} pointerLength={8} pointerWidth={6} fill="#dc2626" stroke="#dc2626" strokeWidth={2} />
                         <Text x={-4} y={18} text="N" fontSize={11} fontStyle="bold" fill="#dc2626" align="center" />
                     </Group>
 
-                    {/* TITLE BLOCK - Bottom (single, always rendered once) */}
-                    <Group key="title-block">
-                        {/* Separator line above title block */}
-                        <Line
-                            points={[offsetX, offsetY + plotHpx + 8, offsetX + plotWpx, offsetY + plotHpx + 8]}
-                            stroke="#333"
-                            strokeWidth={1}
-                        />
-                        {/* LEFT column: brand name + tagline */}
-                        <Text x={offsetX} y={offsetY + plotHpx + 18} text="VASTU ARCHITECT AI" fontSize={13} fontStyle="bold" fill="#1a1a1a" />
-                        <Text x={offsetX} y={offsetY + plotHpx + 34} text="AI-Powered Floor Plan Generator" fontSize={9} fill="#6b7280" />
-                        {/* CENTER column: plot info — width-anchored so align=center works */}
-                        <Text
-                            x={offsetX}
-                            y={offsetY + plotHpx + 18}
-                            width={plotWpx}
-                            text={`${data.bhk_type || '3BHK'} | Plot: ${(data.plot_w_m / 0.3048).toFixed(0)}ft × ${(data.plot_d_m / 0.3048).toFixed(0)}ft`}
-                            fontSize={11}
-                            fill="#1a1a1a"
-                            align="center"
-                        />
-                        <Text
-                            x={offsetX}
-                            y={offsetY + plotHpx + 34}
-                            width={plotWpx}
-                            text={`Style: ${data.style || 'modern'}`}
-                            fontSize={9}
-                            fill="#6b7280"
-                            align="center"
-                        />
-                        {/* RIGHT column: vastu score + grade + URL — offsetX for right-align anchor */}
-                        <Text
-                            x={offsetX}
-                            y={offsetY + plotHpx + 18}
-                            width={plotWpx}
-                            text={`Vastu Score: ${Math.round(data.compliance?.overall ?? 0)}/100`}
-                            fontSize={11}
-                            fill="#1a1a1a"
-                            align="right"
-                        />
-                        <Text
-                            x={offsetX}
-                            y={offsetY + plotHpx + 34}
-                            width={plotWpx}
-                            text={`Grade ${data.compliance?.grade ?? '-'}`}
-                            fontSize={9}
-                            fill={getGradeColor(data.compliance?.grade ?? '-')}
-                            align="right"
-                        />
-                        <Text
-                            x={offsetX}
-                            y={offsetY + plotHpx + 48}
-                            width={plotWpx}
-                            text="pranit-vision.vercel.app"
-                            fontSize={8}
-                            fill="#9ca3af"
-                            align="right"
-                        />
-                    </Group>
                 </Layer>
             </Stage>
         </div>

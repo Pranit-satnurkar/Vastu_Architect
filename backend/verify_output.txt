@@ -1,0 +1,23 @@
+1BHK 20x30: OK - 5 rooms (Pattern: compact_1bhk)
+  Living / Dining      w=2.82 h=4.77
+  Kitchen              w=2.82 h=3.91
+  Toilet (Master)      w=1.50 h=1.81
+  Master Bedroom       w=2.82 h=6.87
+  Pooja                w=1.32 h=1.81
+------------------------------
+1BHK 30x50: OK - 5 rooms (Pattern: LR_front)
+  Living / Dining      w=2.56 h=6.00
+  Kitchen              w=3.76 h=5.00
+  Master Bedroom       w=3.52 h=7.68
+  Toilet (Master)      w=1.40 h=2.34
+  Pooja                w=1.20 h=1.20
+------------------------------
+2BHK 30x50: OK - 7 rooms (Pattern: LR_front)
+  Living / Dining      w=2.70 h=4.55
+  Kitchen              w=3.90 h=5.00
+  Bedroom              w=3.35 h=6.00
+  Master Bedroom       w=3.36 h=8.00
+  Toilet (Master)      w=1.42 h=2.30
+  Toilet (Bedroom)     w=1.43 h=2.13
+  Pooja                w=1.20 h=1.20
+------------------------------

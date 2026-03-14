@@ -43,25 +43,27 @@ def generate_bsp_layout(
         rooms = []
         try:
             # ═══ PHASE 1: FIXED COLUMN BOUNDARIES ═══
-            layout_mode = random.choices(["west_heavy", "balanced", "east_heavy"], weights=[35, 30, 35])[0]
+            layout_mode = random.choices(
+                ["west_heavy", "balanced", "east_heavy"],
+                weights=[33, 34, 33]
+            )[0]
 
             if layout_mode == "west_heavy":
-                col_a_pct = random.uniform(0.42, 0.50)
-                col_b_pct = random.uniform(0.11, 0.15)
+                col_a_pct = random.uniform(0.44, 0.52)
+                col_b_pct = random.uniform(0.10, 0.14)
             elif layout_mode == "balanced":
-                col_a_pct = random.uniform(0.35, 0.42)
-                col_b_pct = random.uniform(0.14, 0.18)
-            else: # east_heavy
+                col_a_pct = random.uniform(0.36, 0.44)
+                col_b_pct = random.uniform(0.13, 0.17)
+            elif layout_mode == "east_heavy":
                 col_a_pct = random.uniform(0.28, 0.36)
-                col_b_pct = random.uniform(0.12, 0.16)
+                col_b_pct = random.uniform(0.11, 0.15)
+
+            col_c_pct = 1.0 - col_a_pct - col_b_pct
 
             living_pct = random.uniform(0.40, 0.60)
             flip = random.random() < 0.30
 
-            layout_variant = layout_mode + ("_flipped" if flip else "")
-
-
-            col_c_pct = 1.0 - col_a_pct - col_b_pct
+            layout_variant = layout_mode + "_" + ("flipped" if flip else "standard")
 
             col_a_w = round(iw * col_a_pct, 2)
             col_b_w = round(iw * col_b_pct, 2)

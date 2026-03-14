@@ -1,0 +1,20 @@
+--- 1BHK Debug ---
+Invalid: {'name': 'Kitchen', 'x': 7.3, 'y': 4.78, 'w': 1.61, 'h': 10.23, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 22.4655
+Invalid: {'name': 'Kitchen', 'x': 7.3, 'y': 4.78, 'w': 1.61, 'h': 10.23, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 22.4655
+Invalid: {'name': 'Kitchen', 'x': 7.22, 'y': 6.23, 'w': 1.69, 'h': 8.78, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 27.165
+Invalid: {'name': 'Kitchen', 'x': 7.22, 'y': 6.23, 'w': 1.69, 'h': 8.78, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 27.165
+Invalid: {'name': 'Kitchen', 'x': 7.68, 'y': 5.9, 'w': 1.23, 'h': 9.11, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 23.570099999999996
+Invalid: {'name': 'Kitchen', 'x': 7.68, 'y': 5.9, 'w': 1.23, 'h': 9.11, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 23.570099999999996
+Invalid: {'name': 'Kitchen', 'x': 7.18, 'y': 5.78, 'w': 1.73, 'h': 9.23, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 26.0415
+Invalid: {'name': 'Kitchen', 'x': 7.18, 'y': 5.78, 'w': 1.73, 'h': 9.23, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 26.0415
+1BHK ERROR: Failed to generate valid layout after 3 retries.
+--- 4BHK Debug ---
+Invalid: {'name': 'Kitchen', 'x': 7.3, 'y': 4.78, 'w': 1.61, 'h': 10.23, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 22.4655
+Invalid: {'name': 'Kitchen', 'x': 7.3, 'y': 4.78, 'w': 1.61, 'h': 10.23, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 22.4655
+Invalid: {'name': 'Kitchen', 'x': 7.22, 'y': 6.23, 'w': 1.69, 'h': 8.78, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 27.165
+Invalid: {'name': 'Kitchen', 'x': 7.22, 'y': 6.23, 'w': 1.69, 'h': 8.78, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 27.165
+Invalid: {'name': 'Kitchen', 'x': 7.68, 'y': 5.9, 'w': 1.23, 'h': 9.11, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 23.570099999999996
+Invalid: {'name': 'Kitchen', 'x': 7.68, 'y': 5.9, 'w': 1.23, 'h': 9.11, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 23.570099999999996
+Invalid: {'name': 'Kitchen', 'x': 7.18, 'y': 5.78, 'w': 1.73, 'h': 9.23, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 26.0415
+Invalid: {'name': 'Kitchen', 'x': 7.18, 'y': 5.78, 'w': 1.73, 'h': 9.23, 'door': {'wall': 'N', 'pos': 0.5, 'width': 0.9}, 'window': {'wall': 'E', 'pos': 0.4, 'width': 0.9}} total_area: 26.0415
+4BHK ERROR: Failed to generate valid layout after 3 retries.

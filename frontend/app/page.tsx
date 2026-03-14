@@ -47,6 +47,13 @@ export default function VastuArchitectPage() {
 
   const stageRef = useRef<any>(null);
 
+  const grade = planData?.compliance?.grade ?? "-";
+  const score = Math.round(planData?.compliance?.overall ?? 0);
+  let gradeColor = "#888888";
+  if (grade.startsWith("A")) gradeColor = "#16a34a";
+  else if (grade.startsWith("B")) gradeColor = "#d97706";
+  else if (grade.startsWith("C") || grade.startsWith("D")) gradeColor = "#dc2626";
+
   const generatePlan = async () => {
     setLoading(true);
     setError("");
@@ -148,59 +155,41 @@ export default function VastuArchitectPage() {
     const imgHeight = pageHeight - 55;  // leave room for bottom title block
     pdf.addImage(dataURL, 'PNG', margin, margin, imgWidth, imgHeight);
 
-    // Title block line
+    // Separator line above title block
     pdf.setDrawColor('#333333');
-    pdf.setLineWidth(0.25);
+    pdf.setLineWidth(0.5);
     pdf.line(0, pageHeight - 40, pageWidth, pageHeight - 40);
 
-    // Title block content
-    // left side
-    pdf.setFontSize(14);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('VASTU ARCHITECT AI', 15, pageHeight - 25);
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor('#888888');
-    pdf.text('AI-Powered Floor Plan Generator', 15, pageHeight - 15);
-
-    // center
-    pdf.setFontSize(11);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor('#000000');
-    pdf.text(
-      `Plot: ${plotW}ft × ${plotD}ft | ${bhkType}`,
-      pageWidth / 2,
-      pageHeight - 25,
-      { align: 'center' }
-    );
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor('#888888');
-    pdf.text(`Style: ${style}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
-
-    // right side
+    // Title block content (three columns)
+    
+    // LEFT: Branding
     pdf.setFontSize(11);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor('#000000');
-    pdf.text(`Vastu Score: ${Math.round(planData?.compliance?.overall ?? 0)}/100`, pageWidth - 15, pageHeight - 25, { align: 'right' });
-    pdf.setFontSize(10);
-    const grade = planData?.compliance?.grade ?? '-';
-    // colored badge by grade
-    let gradeColor = '#888888';
-    if (grade.startsWith('A')) gradeColor = '#22c55e';
-    else if (grade.startsWith('B')) gradeColor = '#3b82f6';
-    else if (grade === 'C') gradeColor = '#f59e0b';
-    else if (grade === 'D') gradeColor = '#ef4444';
-    pdf.setFillColor(gradeColor);
-    pdf.rect(pageWidth - 40, pageHeight - 30, 30, 12, 'F');
-    pdf.setFontSize(9);
-    pdf.setTextColor('#ffffff');
-    pdf.text(`Grade ${grade}`, pageWidth - 25, pageHeight - 19, { align: 'center' });
+    pdf.text('VASTU ARCHITECT AI', margin, pageHeight - 25);
     pdf.setFontSize(8);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor('#888888');
-    pdf.text('pranit-vision.vercel.app', pageWidth - 15, pageHeight - 5, { align: 'right' });
+    pdf.text('AI-Powered Floor Plan Generator', margin, pageHeight - 15);
 
+    // CENTER: Plot Info
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor('#000000');
+    pdf.text(`${bhkType} | ${plotW}ft × ${plotD}ft`, pageWidth / 2, pageHeight - 25, { align: 'center' });
+    pdf.setFontSize(8);
+    pdf.setTextColor('#888888');
+    pdf.text(`Style: ${style}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
+
+    // RIGHT: Scores & URL
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor('#000000');
+    pdf.text(`Score: ${score}/100  Grade: ${grade}`, pageWidth - margin, pageHeight - 25, { align: 'right' });
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor('#888888');
+    pdf.text('pranit-vision.vercel.app', pageWidth - margin, pageHeight - 15, { align: 'right' });
 
     pdf.save(`VastuPlan_${plotW}x${plotD}.pdf`);
   };
@@ -401,6 +390,82 @@ export default function VastuArchitectPage() {
                 </div>
               </div>
             )}
+            {planData && (
+              <div className="bg-white rounded-xl border border-gray-200 p-4 mt-4">
+                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Plan Details
+                </h3>
+                
+                <div className="space-y-2">
+                  
+                  {/* Vastu Score */}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Vastu Score</span>
+                    <span className="font-bold text-lg" style={{color: gradeColor}}>
+                      {score}/100
+                    </span>
+                  </div>
+                  
+                  {/* Grade */}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Grade</span>
+                    <span className="px-2 py-0.5 rounded text-white text-sm font-bold" style={{backgroundColor: gradeColor}}>
+                      {grade}
+                    </span>
+                  </div>
+                  
+                  {/* Plot Size */}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Plot</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {planData.plot_w_ft}ft × {planData.plot_d_ft}ft
+                    </span>
+                  </div>
+                  
+                  {/* BHK Type */}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Type</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {planData.bhk_type}
+                    </span>
+                  </div>
+                  
+                  {/* Room Count */}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Rooms</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {planData.room_count}
+                    </span>
+                  </div>
+                  
+                  {/* Engine */}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Engine</span>
+                    <span className="text-sm font-medium text-indigo-600">
+                      {planData.engine || "BSP"}
+                    </span>
+                  </div>
+                  
+                  {/* Style */}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Style</span>
+                    <span className="text-sm font-medium capitalize text-gray-900">
+                      {planData.style}
+                    </span>
+                  </div>
+
+                </div>
+
+                {/* VASTU SUMMARY */}
+                {planData.compliance?.summary && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <p className="text-xs text-gray-500 italic leading-relaxed line-clamp-3">
+                      "{planData.compliance.summary}"
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </aside>
 
@@ -492,25 +557,6 @@ export default function VastuArchitectPage() {
                   </div>
                 </div>
 
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-6">
-                  <div className="bg-accent/5 border border-accent/20 rounded-2xl p-6 flex flex-col items-center justify-center">
-                    <span className="text-[10px] uppercase font-bold text-accent tracking-widest mb-2">Vastu Score</span>
-                    <div className="text-6xl font-black text-white leading-none">
-                      {Math.round(planData?.compliance?.overall ?? 0)}
-                    </div>
-                    <div className="mt-4 px-3 py-1 bg-green-500/20 text-green-400 text-xs font-bold rounded-full">
-                      GRADE {planData?.compliance?.grade ?? "-"}
-                    </div>
-                  </div>
-                  <div className="bg-border/20 border border-border/40 rounded-2xl p-6">
-                    <h3 className="text-sm font-bold flex items-center gap-2 mb-3">
-                      <Sparkles className="w-4 h-4 text-accent" /> Compliance Summary
-                    </h3>
-                    <p className="text-sm text-gray-400 leading-relaxed italic">
-                      "{planData?.compliance?.summary ?? "Vastu scoring coming next"}"
-                    </p>
-                  </div>
-                </div>
               </>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-12">

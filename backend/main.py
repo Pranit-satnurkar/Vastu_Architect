@@ -96,11 +96,24 @@ def generate_plan(req: PlanRequest):
         params["bhk_type"],
         params["plot_w_ft"],
         params["plot_d_ft"],
-        params["style"]
+        params["style"],
+        req.prompt
     )
+
+    if "compliance" not in result:
+        from spatial_optimizer import compute_vastu_compliance
+        try:
+            result["compliance"] = compute_vastu_compliance(
+                result.get("rooms", []),
+                float(result.get("plot_w_m", 0)),
+                float(result.get("plot_d_m", 0)),
+            )
+        except Exception:
+            pass
 
     # Cache rooms_data for DXF export
     if "rooms" in result:
+        result["room_count"] = len(result["rooms"])
         app.state.last_rooms_data = result["rooms"]
         app.state.last_client_name = req.client_name
         app.state.last_plot_w = result.get(

@@ -1,4 +1,4 @@
-from bsp_engine import generate_bsp_layout
+from layout_engine import generate_layout
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -98,33 +98,47 @@ def compute_vastu_compliance(
     return {"overall": overall, "grade": grade, "summary": summary}
 
 
-def optimize_layout(
-    bhk_type,
-    plot_w_ft,
-    plot_d_ft,
-    style="modern",
-    user_preferences=None,
-):
-    # Change 6: Prevent same seed in succession
-    import time
-    seed = int(time.time() * 1000) % 999999
-    
-    result = generate_bsp_layout(
-        bhk_type,
-        plot_w_ft,
-        plot_d_ft,
-        style,
-        seed,
-    )
-    # Always compute compliance from actual room positions (no hardcoded values)
-    try:
-        result["compliance"] = compute_vastu_compliance(
-            result.get("rooms", []),
-            float(result.get("plot_w_m", 0)),
-            float(result.get("plot_d_m", 0)),
-        )
-    except Exception:
-        # Keep any existing compliance if scoring fails
-        pass
-    return result
+def optimize_layout(bhk_type, plot_w_ft, plot_d_ft,
+                    style="modern", 
+                    user_preferences=None):
+  
+  toilet_pref = "auto"
+  include_pooja = True
+  include_dining = True
+  
+  if user_preferences:
+    if "common toilet" in user_preferences.lower():
+      toilet_pref = "common"
+    if "attached toilet" in user_preferences.lower():
+      toilet_pref = "all_attached"
+    if "no pooja" in user_preferences.lower():
+      include_pooja = False
+    if "no dining" in user_preferences.lower():
+      include_dining = False
+  
+  result = generate_layout(
+    bhk_type=bhk_type,
+    plot_w_ft=plot_w_ft,
+    plot_d_ft=plot_d_ft,
+    style=style,
+    toilet_pref=toilet_pref,
+    include_pooja=include_pooja,
+    include_dining=include_dining
+  )
+  
+  if "error" in result:
+    # Fallback to old template engine
+    from templates import get_plan
+    return get_plan(bhk_type, plot_w_ft, 
+                    plot_d_ft, style)
+  
+  # Add pixel coordinates for frontend
+  ppm = 20
+  for r in result["rooms"]:
+    r["x_px"] = round(r["x"] * ppm)
+    r["y_px"] = round(r["y"] * ppm)
+    r["w_px"] = round(r["w"] * ppm)
+    r["h_px"] = round(r["h"] * ppm)
+  
+  return result
 
