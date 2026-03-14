@@ -2,9 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
-from spatial_optimizer import optimize_layout
-from vastu_engine import generate_clean_dxf
-from dxf_exporter import generate_professional_dxf
+from src.core.spatial_optimizer import optimize_layout
+from src.export.vastu_engine import generate_clean_dxf
+from src.export.dxf_exporter import generate_professional_dxf
 
 import google.generativeai as genai
 import json
@@ -101,7 +101,7 @@ def generate_plan(req: PlanRequest):
     )
 
     if "compliance" not in result:
-        from spatial_optimizer import compute_vastu_compliance
+        from src.core.spatial_optimizer import compute_vastu_compliance
         try:
             result["compliance"] = compute_vastu_compliance(
                 result.get("rooms", []),

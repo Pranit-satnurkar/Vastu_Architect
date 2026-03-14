@@ -4,10 +4,10 @@ import time
 import os
 from dotenv import load_dotenv
 load_dotenv()
-from vastu_rag_engine import get_vastu_retriever, query_vastu_rules, ConstraintExtractor
-from spatial_optimizer import Room, VastuConstraint, generate_layout
-from vastu_engine import generate_ai_detailed_plan
-from vastu_renderer import render_preview_plan
+from src.rag.vastu_rag_engine import get_vastu_retriever, query_vastu_rules, ConstraintExtractor
+from src.core.spatial_optimizer import Room, VastuConstraint, generate_layout
+from src.export.vastu_engine import generate_ai_detailed_plan
+from .vastu_renderer import render_preview_plan
 
 st.set_page_config(page_title="Vastu Architect AI", layout="wide")
 

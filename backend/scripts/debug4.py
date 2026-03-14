@@ -1,4 +1,6 @@
-import layout_engine
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import src.core.layout_engine as layout_engine
 
 orig = layout_engine.generate_layout
 

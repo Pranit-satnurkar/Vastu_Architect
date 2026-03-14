@@ -1,4 +1,6 @@
-from layout_engine import generate_layout
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.core.layout_engine import generate_layout
 
 tests = [
     ("1BHK", 20, 30),

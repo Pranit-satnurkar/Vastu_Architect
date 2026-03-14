@@ -1,8 +1,10 @@
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import random
 import time
 from typing import List, Optional, Dict, Any
 
-from templates import get_plan
+from src.data.templates import get_plan
 
 WALL = 0.23  # wall thickness in meters
 FT = 0.3048  # feet to meters

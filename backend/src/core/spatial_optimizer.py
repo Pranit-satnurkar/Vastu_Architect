@@ -1,4 +1,4 @@
-from layout_engine import generate_layout
+from .layout_engine import generate_layout
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -128,7 +128,7 @@ def optimize_layout(bhk_type, plot_w_ft, plot_d_ft,
   
   if "error" in result:
     # Fallback to old template engine
-    from templates import get_plan
+    from src.data.templates import get_plan
     return get_plan(bhk_type, plot_w_ft, 
                     plot_d_ft, style)
   
