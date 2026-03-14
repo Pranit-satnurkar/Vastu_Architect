@@ -23,7 +23,7 @@ uvicorn main:app --reload --port 8000
 
 **Streamlit app** (standalone UI with RAG + DXF export):
 ```bash
-streamlit run vastu_app.py
+streamlit run src/ui/vastu_app.py
 ```
 
 ## API

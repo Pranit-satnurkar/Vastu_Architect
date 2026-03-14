@@ -2,6 +2,26 @@
 
 Next.js 14 frontend for Vastu Architect. Renders an interactive floor plan canvas from backend-generated room data.
 
+## Folder Structure
+
+```
+frontend/
+├── app/                    # Next.js App Router (all routes live here)
+│   ├── layout.tsx          # Root layout — HTML shell, Inter font, globals.css
+│   ├── page.tsx            # Main page — form state, API calls, renders canvas
+│   └── globals.css         # Tailwind base + CSS variables (dark theme)
+├── components/
+│   └── FloorPlanCanvas.tsx # Konva.js canvas — purely presentational
+├── package.json
+├── tsconfig.json           # Path alias: @/* → root
+├── tailwind.config.ts      # Custom dark palette (background/panel/accent)
+└── postcss.config.js
+```
+
+> Note: The project previously had a `src/` directory from a Vite/SPA prototype and an
+> `index.html` + `vite.config.ts` — these were removed. Do NOT re-add them.
+> The canonical structure is `app/` (routing) + `components/` (shared UI) at the root.
+
 ## Dev Commands
 
 ```bash

@@ -12,7 +12,7 @@ import {
   Layout,
   Maximize2,
   AlertCircle,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import FloorPlanCanvas from "../components/FloorPlanCanvas";
 import { clsx, type ClassValue } from "clsx";
@@ -52,21 +52,22 @@ export default function VastuArchitectPage() {
   let gradeColor = "#888888";
   if (grade.startsWith("A")) gradeColor = "#16a34a";
   else if (grade.startsWith("B")) gradeColor = "#d97706";
-  else if (grade.startsWith("C") || grade.startsWith("D")) gradeColor = "#dc2626";
+  else if (grade.startsWith("C") || grade.startsWith("D"))
+    gradeColor = "#dc2626";
 
   const generatePlan = async () => {
     setLoading(true);
     setError("");
     try {
       // First, verify backend is reachable
-      const healthCheck = await Promise.race([
+      const healthCheck: any = await Promise.race([
         fetch("http://localhost:8000/health"),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Backend timeout")), 3000)
+          setTimeout(() => reject(new Error("Backend timeout")), 3000),
         ),
       ]);
 
-      if (!healthCheck.ok) {
+      if (!(("ok" in healthCheck) as any) || !(healthCheck as any).ok) {
         throw new Error("Backend health check failed");
       }
 
@@ -86,7 +87,9 @@ export default function VastuArchitectPage() {
       if (!res.ok) {
         const errText = await res.text();
         console.error("Backend error:", errText);
-        throw new Error(`Backend returned ${res.status}: ${errText.substring(0, 100)}`);
+        throw new Error(
+          `Backend returned ${res.status}: ${errText.substring(0, 100)}`,
+        );
       }
 
       const data = await res.json();
@@ -98,10 +101,15 @@ export default function VastuArchitectPage() {
 
       // Provide helpful error messages
       let friendlyError = "Failed to generate plan.";
-      if (errorMsg.includes("timeout") || errorMsg.includes("Failed to connect")) {
-        friendlyError += " Backend is not running. Start it with: uvicorn main:app --reload --port 8000";
+      if (
+        errorMsg.includes("timeout") ||
+        errorMsg.includes("Failed to connect")
+      ) {
+        friendlyError +=
+          " Backend is not running. Start it with: uvicorn main:app --reload --port 8000";
       } else if (errorMsg.includes("JSON")) {
-        friendlyError += " Backend returned invalid data. Check console for details.";
+        friendlyError +=
+          " Backend returned invalid data. Check console for details.";
       } else if (errorMsg.includes("500")) {
         friendlyError += " Server error. Check backend logs.";
       }
@@ -116,7 +124,7 @@ export default function VastuArchitectPage() {
     if (stageRef.current) {
       const uri = stageRef.current.toDataURL({
         pixelRatio: 2,
-        mimeType: 'image/png',
+        mimeType: "image/png",
         quality: 1,
       });
       const link = document.createElement("a");
@@ -135,15 +143,15 @@ export default function VastuArchitectPage() {
     // Export canvas at 3x resolution for high-DPI printing
     const dataURL = stage.toDataURL({
       pixelRatio: 3,
-      mimeType: 'image/png',
+      mimeType: "image/png",
       quality: 1,
     });
 
     // Create A3 landscape PDF — better for floor plans
     const pdf = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a3'
+      orientation: "landscape",
+      unit: "mm",
+      format: "a3",
     });
 
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -152,44 +160,58 @@ export default function VastuArchitectPage() {
     // Add floor plan image — full page with margins, no duplicate header above it
     const margin = 15;
     const imgWidth = pageWidth - margin * 2;
-    const imgHeight = pageHeight - 55;  // leave room for bottom title block
-    pdf.addImage(dataURL, 'PNG', margin, margin, imgWidth, imgHeight);
+    const imgHeight = pageHeight - 55; // leave room for bottom title block
+    pdf.addImage(dataURL, "PNG", margin, margin, imgWidth, imgHeight);
 
     // Separator line above title block
-    pdf.setDrawColor('#333333');
+    pdf.setDrawColor("#333333");
     pdf.setLineWidth(0.5);
     pdf.line(0, pageHeight - 40, pageWidth, pageHeight - 40);
 
     // Title block content (three columns)
-    
+
     // LEFT: Branding
     pdf.setFontSize(11);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor('#000000');
-    pdf.text('VASTU ARCHITECT AI', margin, pageHeight - 25);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor("#000000");
+    pdf.text("VASTU ARCHITECT AI", margin, pageHeight - 25);
     pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor('#888888');
-    pdf.text('AI-Powered Floor Plan Generator', margin, pageHeight - 15);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor("#888888");
+    pdf.text("AI-Powered Floor Plan Generator", margin, pageHeight - 15);
 
     // CENTER: Plot Info
     pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor('#000000');
-    pdf.text(`${bhkType} | ${plotW}ft × ${plotD}ft`, pageWidth / 2, pageHeight - 25, { align: 'center' });
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor("#000000");
+    pdf.text(
+      `${bhkType} | ${plotW}ft × ${plotD}ft`,
+      pageWidth / 2,
+      pageHeight - 25,
+      { align: "center" },
+    );
     pdf.setFontSize(8);
-    pdf.setTextColor('#888888');
-    pdf.text(`Style: ${style}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
+    pdf.setTextColor("#888888");
+    pdf.text(`Style: ${style}`, pageWidth / 2, pageHeight - 15, {
+      align: "center",
+    });
 
     // RIGHT: Scores & URL
     pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor('#000000');
-    pdf.text(`Score: ${score}/100  Grade: ${grade}`, pageWidth - margin, pageHeight - 25, { align: 'right' });
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor("#000000");
+    pdf.text(
+      `Score: ${score}/100  Grade: ${grade}`,
+      pageWidth - margin,
+      pageHeight - 25,
+      { align: "right" },
+    );
     pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor('#888888');
-    pdf.text('pranit-vision.vercel.app', pageWidth - margin, pageHeight - 15, { align: 'right' });
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor("#888888");
+    pdf.text("pranit-vision.vercel.app", pageWidth - margin, pageHeight - 15, {
+      align: "right",
+    });
 
     pdf.save(`VastuPlan_${plotW}x${plotD}.pdf`);
   };
@@ -209,7 +231,7 @@ export default function VastuArchitectPage() {
           plot_w_m: planData.plot_w_m,
           plot_d_m: planData.plot_d_m,
           client_name: clientName || "Client",
-          unit_system: units === "m" ? "metric" : "ft"
+          unit_system: units === "m" ? "metric" : "ft",
         }),
       });
 
@@ -237,7 +259,6 @@ export default function VastuArchitectPage() {
   return (
     <div className="min-h-screen bg-background text-white font-sans selection:bg-accent/30">
       <div className="max-w-[1600px] mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-[450px_1fr] gap-8">
-
         {/* LEFT PANEL: INPUT FORM */}
         <aside className="bg-panel border border-border rounded-2xl p-6 h-fit sticky top-8 shadow-2xl">
           <header className="mb-8">
@@ -245,15 +266,21 @@ export default function VastuArchitectPage() {
               <div className="bg-accent p-2 rounded-lg">
                 <Home className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-2xl font-bold tracking-tight">Vastu Architect AI</h1>
+              <h1 className="text-2xl font-bold tracking-tight">
+                Vastu Architect AI
+              </h1>
             </div>
-            <p className="text-gray-400 text-sm">Generate Vastu-compliant floor plans instantly</p>
+            <p className="text-gray-400 text-sm">
+              Generate Vastu-compliant floor plans instantly
+            </p>
           </header>
 
           <div className="space-y-6">
             {/* BHK TYPE */}
             <div>
-              <label className="text-sm font-medium text-gray-300 mb-3 block">BHK Type</label>
+              <label className="text-sm font-medium text-gray-300 mb-3 block">
+                BHK Type
+              </label>
               <div className="grid grid-cols-4 gap-2">
                 {BHK_TYPES.map((type) => (
                   <button
@@ -263,7 +290,7 @@ export default function VastuArchitectPage() {
                       "py-2 px-1 rounded-lg text-sm font-medium transition-all duration-200 border",
                       bhkType === type
                         ? "bg-accent border-accent text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
-                        : "bg-border/20 border-border text-gray-500 hover:text-gray-300 hover:border-gray-600"
+                        : "bg-border/20 border-border text-gray-500 hover:text-gray-300 hover:border-gray-600",
                     )}
                   >
                     {type}
@@ -305,7 +332,10 @@ export default function VastuArchitectPage() {
               {QUICK_SIZES.map((size) => (
                 <button
                   key={`${size.w}x${size.d}`}
-                  onClick={() => { setPlotW(size.w); setPlotD(size.d); }}
+                  onClick={() => {
+                    setPlotW(size.w);
+                    setPlotD(size.d);
+                  }}
                   className="text-[10px] uppercase tracking-wider font-bold px-3 py-1 bg-border/40 hover:bg-border/60 rounded-full text-gray-400 transition-colors"
                 >
                   {size.w}×{size.d}
@@ -327,7 +357,7 @@ export default function VastuArchitectPage() {
                       "py-2 px-4 rounded-lg text-sm font-medium capitalize transition-all border",
                       style === s
                         ? "bg-accent border-accent text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
-                        : "bg-border/20 border-border text-gray-500 hover:text-gray-300"
+                        : "bg-border/20 border-border text-gray-500 hover:text-gray-300",
                     )}
                   >
                     {s}
@@ -358,7 +388,7 @@ export default function VastuArchitectPage() {
                 "w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all duration-300",
                 loading
                   ? "bg-gray-700 cursor-not-allowed opacity-50"
-                  : "bg-accent hover:bg-accent-hover text-white shadow-[0_10px_20px_-10px_rgba(99,102,241,0.6)]"
+                  : "bg-accent hover:bg-accent-hover text-white shadow-[0_10px_20px_-10px_rgba(99,102,241,0.6)]",
               )}
             >
               {loading ? (
@@ -382,9 +412,16 @@ export default function VastuArchitectPage() {
                   {error.includes("Backend") && (
                     <div className="text-xs text-red-400 mt-2 bg-black/20 p-2 rounded font-mono">
                       <p className="mb-1">To fix, run in two terminals:</p>
-                      <p className="opacity-75">Terminal 1: cd backend &amp;&amp; python -m uvicorn main:app --reload --port 8000</p>
-                      <p className="opacity-75">Terminal 2: cd frontend &amp;&amp; npm run dev</p>
-                      <p className="mt-2 opacity-75">Or simply run: START_SERVERS.bat</p>
+                      <p className="opacity-75">
+                        Terminal 1: cd backend &amp;&amp; python -m uvicorn
+                        main:app --reload --port 8000
+                      </p>
+                      <p className="opacity-75">
+                        Terminal 2: cd frontend &amp;&amp; npm run dev
+                      </p>
+                      <p className="mt-2 opacity-75">
+                        Or simply run: START_SERVERS.bat
+                      </p>
                     </div>
                   )}
                 </div>
@@ -395,25 +432,30 @@ export default function VastuArchitectPage() {
                 <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
                   Plan Details
                 </h3>
-                
+
                 <div className="space-y-2">
-                  
                   {/* Vastu Score */}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Vastu Score</span>
-                    <span className="font-bold text-lg" style={{color: gradeColor}}>
+                    <span
+                      className="font-bold text-lg"
+                      style={{ color: gradeColor }}
+                    >
                       {score}/100
                     </span>
                   </div>
-                  
+
                   {/* Grade */}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Grade</span>
-                    <span className="px-2 py-0.5 rounded text-white text-sm font-bold" style={{backgroundColor: gradeColor}}>
+                    <span
+                      className="px-2 py-0.5 rounded text-white text-sm font-bold"
+                      style={{ backgroundColor: gradeColor }}
+                    >
                       {grade}
                     </span>
                   </div>
-                  
+
                   {/* Plot Size */}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Plot</span>
@@ -421,7 +463,7 @@ export default function VastuArchitectPage() {
                       {planData.plot_w_ft}ft × {planData.plot_d_ft}ft
                     </span>
                   </div>
-                  
+
                   {/* BHK Type */}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Type</span>
@@ -429,7 +471,7 @@ export default function VastuArchitectPage() {
                       {planData.bhk_type}
                     </span>
                   </div>
-                  
+
                   {/* Room Count */}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Rooms</span>
@@ -437,7 +479,7 @@ export default function VastuArchitectPage() {
                       {planData.room_count}
                     </span>
                   </div>
-                  
+
                   {/* Engine */}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Engine</span>
@@ -445,7 +487,7 @@ export default function VastuArchitectPage() {
                       {planData.engine || "BSP"}
                     </span>
                   </div>
-                  
+
                   {/* Style */}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Style</span>
@@ -453,7 +495,6 @@ export default function VastuArchitectPage() {
                       {planData.style}
                     </span>
                   </div>
-
                 </div>
 
                 {/* VASTU SUMMARY */}
@@ -477,26 +518,37 @@ export default function VastuArchitectPage() {
                 <div className="flex flex-wrap items-center justify-between mb-6 gap-4 border-b border-border pb-6">
                   <div className="flex items-center gap-6">
                     <div className="flex flex-col">
-                      <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">Variant</span>
+                      <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">
+                        Variant
+                      </span>
                       <span className="text-white font-medium capitalize">
                         {planData.layout_variant ?? "Standard"}
-                        <span className="text-gray-500 text-xs ml-2">#{planData.seed ?? planData.seed_used ?? "—"}</span>
+                        <span className="text-gray-500 text-xs ml-2">
+                          #{planData.seed ?? planData.seed_used ?? "—"}
+                        </span>
                       </span>
-                      <span className="text-[9px] text-gray-600 mt-0.5">Click Generate for a new variation</span>
+                      <span className="text-[9px] text-gray-600 mt-0.5">
+                        Click Generate for a new variation
+                      </span>
                     </div>
                     <div className="h-8 w-px bg-border" />
                     <div className="flex flex-col">
-                      <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">Room Count</span>
-                      <span className="text-white font-medium">{planData.room_count} Rooms</span>
+                      <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">
+                        Room Count
+                      </span>
+                      <span className="text-white font-medium">
+                        {planData.room_count} Rooms
+                      </span>
                     </div>
                     <div className="h-8 w-px bg-border" />
                     <div className="flex flex-col">
-                      <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">Plot Dimensions</span>
+                      <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">
+                        Plot Dimensions
+                      </span>
                       <span className="text-white font-medium">
                         {units === "m"
                           ? `${planData.plot_w_m.toFixed(1)}m × ${planData.plot_d_m.toFixed(1)}m`
-                          : `${Math.round(planData.plot_w_m * 3.28084)}'0" × ${Math.round(planData.plot_d_m * 3.28084)}'0"`
-                        }
+                          : `${Math.round(planData.plot_w_m * 3.28084)}'0" × ${Math.round(planData.plot_d_m * 3.28084)}'0"`}
                       </span>
                     </div>
                     <div className="h-8 w-px bg-border" />
@@ -507,7 +559,7 @@ export default function VastuArchitectPage() {
                           "px-3 py-1 rounded text-sm font-semibold transition-colors",
                           units === "ft"
                             ? "bg-accent text-white"
-                            : "bg-border/40 text-gray-400 hover:text-gray-300"
+                            : "bg-border/40 text-gray-400 hover:text-gray-300",
                         )}
                       >
                         ft
@@ -518,7 +570,7 @@ export default function VastuArchitectPage() {
                           "px-3 py-1 rounded text-sm font-semibold transition-colors",
                           units === "m"
                             ? "bg-accent text-white"
-                            : "bg-border/40 text-gray-400 hover:text-gray-300"
+                            : "bg-border/40 text-gray-400 hover:text-gray-300",
                         )}
                       >
                         m
@@ -549,22 +601,30 @@ export default function VastuArchitectPage() {
                 </div>
 
                 <div className="flex-1 bg-white rounded-xl shadow-inner relative group">
-                  <FloorPlanCanvas data={planData} units={units} onStageRef={(ref) => (stageRef.current = ref)} />
+                  <FloorPlanCanvas
+                    data={planData}
+                    units={units}
+                    onStageRef={(ref) => (stageRef.current = ref)}
+                  />
                   <div className="absolute inset-x-0 bottom-4 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <div className="bg-black/80 px-4 py-2 rounded-full text-[10px] font-bold tracking-tighter text-white/50 backdrop-blur-md">
                       Interactive Konvas Rendering Engine
                     </div>
                   </div>
                 </div>
-
               </>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-12">
                 <div className="w-20 h-20 bg-border/30 rounded-full flex items-center justify-center mb-6">
                   <Layout className="w-10 h-10 text-gray-600" />
                 </div>
-                <h2 className="text-xl font-bold mb-2">Architectural Blueprint Output</h2>
-                <p className="text-gray-500 max-w-sm">Configure your requirements on the left to generate an AI-optimized, Vastu-compliant floor plan.</p>
+                <h2 className="text-xl font-bold mb-2">
+                  Architectural Blueprint Output
+                </h2>
+                <p className="text-gray-500 max-w-sm">
+                  Configure your requirements on the left to generate an
+                  AI-optimized, Vastu-compliant floor plan.
+                </p>
 
                 <div className="mt-12 w-full max-w-md border border-dashed border-border rounded-xl aspect-[4/3] flex items-center justify-center text-gray-700 font-mono text-xs">
                   READY_FOR_CALCULATION
@@ -580,8 +640,12 @@ export default function VastuArchitectPage() {
                     <Sparkles className="w-6 h-6 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                   </div>
                   <div className="text-center">
-                    <p className="font-bold text-lg">Consulting Vastu Sastras...</p>
-                    <p className="text-sm text-gray-500 mt-1 animate-pulse">This usually takes 2-3 seconds</p>
+                    <p className="font-bold text-lg">
+                      Consulting Vastu Sastras...
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1 animate-pulse">
+                      This usually takes 2-3 seconds
+                    </p>
                   </div>
                 </div>
               </div>

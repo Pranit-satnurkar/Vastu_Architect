@@ -1,59 +1,81 @@
-# Vastu Architect 🏛️📐
+# Vastu Architect
 
-**Vastu Architect** is an AI-powered spatial design tool that generates architectural house plans based on **Vastu Shastra** principles. It blends traditional Indian spatial logic with modern architectural standards, producing professional-grade CAD files (`.dxf`) ready for AutoCAD.
+AI-powered house floor plan generator based on Vastu Shastra principles. Produces interactive visualizations and professional CAD files (DXF for AutoCAD).
 
-## 🚀 Features
+## Tech Stack
 
-- **AI-Driven Vastu Compliance**: Uses a RAG (Retrieval-Augmented Generation) engine to extract spatial constraints from Vastu PDFs.
-- **Dynamic Spatial Optimization**: Automatically calculates room positions and dimensions to maximize plot utility while adhering to Vastu quadrants.
-- **AIA Standard CAD Export**: Generates professional DXF files with:
-  - AIA National CAD Standard layer naming (A-WALL, A-DOOR, etc.).
-  - Precise lineweights, linetypes, and ANSI31 hatching.
-  - Architectural dimensioning with automatic overlap prevention.
-- **Interactive UI**: A Streamlit-based dashboard for adjusting plot sizes and Vastu strictness in real-time.
+- **Frontend**: Next.js 14, React, Konva.js, Tailwind CSS
+- **Backend**: Python, FastAPI, Google Gemini AI, LangChain, Groq
+- **CAD**: ezdxf (AIA standard layers)
+- **RAG**: ChromaDB + SentenceTransformers (Streamlit path)
 
-## 🛠️ Tech Stack
+## Quick Start
 
-- **Backend**: Python, LangChain, Groq API (LLM).
-- **Geometry**: Shapely, Matplotlib.
-- **CAD Engine**: ezdxf.
-- **Frontend**: Streamlit.
+### 1. Backend
 
-## 📦 Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Pranit-satnurkar/Vastu_Architect.git
-   cd Vastu_Architect
-   ```
-
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Set up environment variables:
-   Create a `.env` file and add your Groq API key:
-   ```env
-   GROQ_API_KEY=your_api_key_here
-   ```
-
-## 🖥️ Usage
-
-Run the Streamlit application:
 ```bash
-streamlit run vastu_app.py
+cd backend
+pip install -r requirements.txt
 ```
 
-## 📐 Layer Standards (AIA)
+Create `backend/.env`:
+```env
+GEMINI_API_KEY=your_gemini_api_key
+GROQ_API_KEY=your_groq_api_key
+```
 
-The exported DXF files follow the AIA National CAD Standard:
-- `A-WALL`: 0.50mm White (Main Structure)
-- `A-WALL-PATT`: 0.15mm Grey (ANSI31 Hatch)
-- `A-DOOR`: 0.25mm Cyan (Frames/Leaves)
-- `A-DOOR-SWING`: 0.13mm Green DASHED (Arcs)
-- `A-ANNO-TEXT`: 0.18mm Yellow (Room Labels)
-- `A-ANNO-DIMS`: 0.15mm Magenta (Dimensions)
+Start the API server:
+```bash
+uvicorn main:app --reload --port 8000
+```
 
----
-Developed with ❤️ by [Pranit Satnurkar](https://github.com/Pranit-satnurkar)
+### 2. Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:3000
+```
+
+The frontend connects to the backend at `http://localhost:8000`.
+
+## Alternative: Streamlit UI
+
+A standalone Streamlit UI with RAG-based Vastu constraint analysis is also available:
+
+```bash
+cd backend
+streamlit run src/ui/vastu_app.py
+```
+
+Requires `GROQ_API_KEY` in `backend/.env` for RAG functionality.
+
+## CAD Layer Standards (DXF)
+
+Exported DXF files follow the AIA National CAD Standard:
+
+| Layer | Color | Lineweight |
+|-------|-------|-----------|
+| `A-WALL` | White | 0.50mm |
+| `A-DOOR` | Cyan | 0.25mm |
+| `A-ANNO-TEXT` | Yellow | 0.18mm |
+| `A-ANNO-DIMS` | Magenta | 0.15mm |
+
+## Project Structure
+
+```
+Vastu_Architect/
+├── backend/
+│   ├── main.py          # FastAPI server
+│   ├── src/
+│   │   ├── core/        # Layout engines
+│   │   ├── data/        # Room templates
+│   │   ├── export/      # DXF generation
+│   │   ├── rag/         # Vastu knowledge RAG
+│   │   ├── scoring/     # Vastu compliance
+│   │   └── ui/          # Streamlit app
+│   └── scripts/         # Debug/test scripts
+└── frontend/
+    ├── app/             # Next.js App Router
+    └── components/      # Shared UI components
+```
