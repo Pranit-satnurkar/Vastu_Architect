@@ -5,9 +5,33 @@ AI-powered house floor plan generator based on Vastu Shastra principles. Produce
 ## Tech Stack
 
 - **Frontend**: Next.js 14, React, Konva.js, Tailwind CSS
-- **Backend**: Python, FastAPI, Google Gemini AI, LangChain, Groq
+- **Backend**: Python, FastAPI, Google Gemini 3.1 Flash Lite, LangChain, Groq
 - **CAD**: ezdxf (AIA standard layers)
 - **RAG**: ChromaDB + SentenceTransformers (Streamlit path)
+
+## New Features & Technical Improvements
+
+### 🏠 Layout Engine V2 (Procedural)
+- **Pattern Variety**: Added `LR_front` and `LR_right` (mirrored) patterns for diverse spatial configurations.
+- **Compact 1BHK Optimization**: Specialized logic for small plots (<600 sqft) ensuring functional room sizes.
+- **Gap-Fix Pass**: Automated geometry verification to eliminate floating-point gaps between room boundaries.
+- **Template Blending**: Procedural generation informed by a curated template database for realistic room proportions.
+
+### 📐 BSP-VASTU Generation
+- **Dynamic Columns**: Randomized column strategies (`west_heavy`, `balanced`, `east_heavy`) for varied corridor placement.
+- **Procedural Corridors**: Intelligent movement flow generation with Vastu-compliant Pooja room integration.
+- **Indian Standard Toilets**: Optimized dimensions (1.4m–1.8m) and placement based on modern Indian architectural standards.
+
+### 🛠️ Professional CAD Export (DXF)
+- **Wall Deduplication**: Coordinate rounding (10mm precision) to ensure shared walls are drawn as single segments.
+- **AIA Layer Standards**: Organized exports into standard layers (`A-WALL-EXT`, `A-WALL-INT`, `A-DOOR`, `A-GLAZ`, etc.).
+- **Precise Geometry**: Accurate door arcs and centered room labels with auto-scaling dimensions.
+
+### 🎨 Interactive UI Rendering
+- **Visual Polish**: Color-coded room types (Living, Bedroom, Kitchen, Pooja) for instant recognition.
+- **Architectural Notation**: 3-tick professional window symbols and visual door swings.
+- **Auto-Dimensioning**: Integrated top and right dimension lines for quick measurement reference.
+- **Title Block**: Professional architectural title block with project metadata and Vastu compliance score.
 
 ## Quick Start
 

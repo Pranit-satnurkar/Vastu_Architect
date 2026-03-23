@@ -1,0 +1,146 @@
+{
+  "1BHK_20x30_v1": {
+    "plot_w_ft": 20, "plot_d_ft": 30,
+    "plot_area_sqft": 600, "bhk_type": "1BHK",
+    "bed_col_pct": 0.50, "north_h_pct": 0.52,
+    "master_h_pct": 0.48, "pattern": "LR_front",
+    "dining_mode": "merged", "has_pooja": false,
+    "room_count": 4
+  },
+  "1BHK_20x40_v1": {
+    "plot_w_ft": 20, "plot_d_ft": 40,
+    "plot_area_sqft": 800, "bhk_type": "1BHK",
+    "bed_col_pct": 0.48, "north_h_pct": 0.48,
+    "master_h_pct": 0.45, "pattern": "LR_front",
+    "dining_mode": "merged", "has_pooja": true,
+    "room_count": 5
+  },
+  "1BHK_25x35_v1": {
+    "plot_w_ft": 25, "plot_d_ft": 35,
+    "plot_area_sqft": 875, "bhk_type": "1BHK",
+    "bed_col_pct": 0.46, "north_h_pct": 0.50,
+    "master_h_pct": 0.46, "pattern": "LR_right",
+    "dining_mode": "merged", "has_pooja": false,
+    "room_count": 4
+  },
+  "2BHK_20x30_v1": {
+    "plot_w_ft": 20, "plot_d_ft": 30,
+    "plot_area_sqft": 600, "bhk_type": "2BHK",
+    "bed_col_pct": 0.52, "north_h_pct": 0.48,
+    "master_h_pct": 0.42, "pattern": "LR_front",
+    "dining_mode": "merged", "has_pooja": false,
+    "room_count": 6
+  },
+  "2BHK_20x40_v1": {
+    "plot_w_ft": 20, "plot_d_ft": 40,
+    "plot_area_sqft": 800, "bhk_type": "2BHK",
+    "bed_col_pct": 0.50, "north_h_pct": 0.46,
+    "master_h_pct": 0.40, "pattern": "LR_front",
+    "dining_mode": "merged", "has_pooja": false,
+    "room_count": 7
+  },
+  "2BHK_25x40_v1": {
+    "plot_w_ft": 25, "plot_d_ft": 40,
+    "plot_area_sqft": 1000, "bhk_type": "2BHK",
+    "bed_col_pct": 0.48, "north_h_pct": 0.45,
+    "master_h_pct": 0.38, "pattern": "LR_front",
+    "dining_mode": "merged", "has_pooja": true,
+    "room_count": 8
+  },
+  "2BHK_30x40_v1": {
+    "plot_w_ft": 30, "plot_d_ft": 40,
+    "plot_area_sqft": 1200, "bhk_type": "2BHK",
+    "bed_col_pct": 0.46, "north_h_pct": 0.44,
+    "master_h_pct": 0.38, "pattern": "LR_front",
+    "dining_mode": "separate", "has_pooja": true,
+    "room_count": 9
+  },
+  "2BHK_30x50_v1": {
+    "plot_w_ft": 30, "plot_d_ft": 50,
+    "plot_area_sqft": 1500, "bhk_type": "2BHK",
+    "bed_col_pct": 0.44, "north_h_pct": 0.42,
+    "master_h_pct": 0.36, "pattern": "LR_front",
+    "dining_mode": "separate", "has_pooja": true,
+    "room_count": 9
+  },
+  "2BHK_20x40_v2": {
+    "plot_w_ft": 20, "plot_d_ft": 40,
+    "plot_area_sqft": 800, "bhk_type": "2BHK",
+    "bed_col_pct": 0.52, "north_h_pct": 0.50,
+    "master_h_pct": 0.42, "pattern": "LR_right",
+    "dining_mode": "merged", "has_pooja": false,
+    "room_count": 7
+  },
+  "3BHK_25x40_v1": {
+    "plot_w_ft": 25, "plot_d_ft": 40,
+    "plot_area_sqft": 1000, "bhk_type": "3BHK",
+    "bed_col_pct": 0.54, "north_h_pct": 0.42,
+    "master_h_pct": 0.36, "pattern": "LR_front",
+    "dining_mode": "merged", "has_pooja": false,
+    "room_count": 9
+  },
+  "3BHK_30x40_v1": {
+    "plot_w_ft": 30, "plot_d_ft": 40,
+    "plot_area_sqft": 1200, "bhk_type": "3BHK",
+    "bed_col_pct": 0.52, "north_h_pct": 0.42,
+    "master_h_pct": 0.35, "pattern": "LR_front",
+    "dining_mode": "merged", "has_pooja": true,
+    "room_count": 10
+  },
+  "3BHK_30x50_v1": {
+    "plot_w_ft": 30, "plot_d_ft": 50,
+    "plot_area_sqft": 1500, "bhk_type": "3BHK",
+    "bed_col_pct": 0.50, "north_h_pct": 0.40,
+    "master_h_pct": 0.34, "pattern": "LR_front",
+    "dining_mode": "separate", "has_pooja": true,
+    "room_count": 11
+  },
+  "3BHK_40x60_v1": {
+    "plot_w_ft": 40, "plot_d_ft": 60,
+    "plot_area_sqft": 2400, "bhk_type": "3BHK",
+    "bed_col_pct": 0.48, "north_h_pct": 0.38,
+    "master_h_pct": 0.32, "pattern": "LR_front",
+    "dining_mode": "separate", "has_pooja": true,
+    "room_count": 12
+  },
+  "3BHK_30x40_v2": {
+    "plot_w_ft": 30, "plot_d_ft": 40,
+    "plot_area_sqft": 1200, "bhk_type": "3BHK",
+    "bed_col_pct": 0.52, "north_h_pct": 0.44,
+    "master_h_pct": 0.36, "pattern": "LR_right",
+    "dining_mode": "merged", "has_pooja": false,
+    "room_count": 10
+  },
+  "3BHK_25x45_v1": {
+    "plot_w_ft": 25, "plot_d_ft": 45,
+    "plot_area_sqft": 1125, "bhk_type": "3BHK",
+    "bed_col_pct": 0.53, "north_h_pct": 0.41,
+    "master_h_pct": 0.35, "pattern": "LR_front",
+    "dining_mode": "merged", "has_pooja": true,
+    "room_count": 10
+  },
+  "4BHK_40x60_v1": {
+    "plot_w_ft": 40, "plot_d_ft": 60,
+    "plot_area_sqft": 2400, "bhk_type": "4BHK",
+    "bed_col_pct": 0.46, "north_h_pct": 0.38,
+    "master_h_pct": 0.30, "pattern": "LR_front",
+    "dining_mode": "separate", "has_pooja": true,
+    "room_count": 13
+  },
+  "4BHK_50x60_v1": {
+    "plot_w_ft": 50, "plot_d_ft": 60,
+    "plot_area_sqft": 3000, "bhk_type": "4BHK",
+    "bed_col_pct": 0.44, "north_h_pct": 0.36,
+    "master_h_pct": 0.28, "pattern": "LR_front",
+    "dining_mode": "separate", "has_pooja": true,
+    "room_count": 14
+  },
+  "4BHK_50x80_v1": {
+    "plot_w_ft": 50, "plot_d_ft": 80,
+    "plot_area_sqft": 4000, "bhk_type": "4BHK",
+    "bed_col_pct": 0.42, "north_h_pct": 0.35,
+    "master_h_pct": 0.26, "pattern": "LR_front",
+    "dining_mode": "separate", "has_pooja": true,
+    "room_count": 15
+  }
+}
