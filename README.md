@@ -9,29 +9,68 @@ AI-powered house floor plan generator based on Vastu Shastra principles. Produce
 - **CAD**: ezdxf (AIA standard layers)
 - **RAG**: ChromaDB + SentenceTransformers (Streamlit path)
 
-## New Features & Technical Improvements
+## Features
 
-### 🏠 Layout Engine V2 (Procedural)
-- **Pattern Variety**: Added `LR_front` and `LR_right` (mirrored) patterns for diverse spatial configurations.
-- **Compact 1BHK Optimization**: Specialized logic for small plots (<600 sqft) ensuring functional room sizes.
-- **Gap-Fix Pass**: Automated geometry verification to eliminate floating-point gaps between room boundaries.
-- **Template Blending**: Procedural generation informed by a curated template database for realistic room proportions.
+### 🏠 Layout Engine
+- **BSP-VASTU Generation** — Binary Space Partitioning with Vastu-compliant room placement, dynamic column strategies (`west_heavy`, `balanced`, `east_heavy`), and procedural corridor generation
+- **Template Blending** — Procedural generation informed by a curated template database (2BHK v1–5, 3BHK v1–3, etc.) for realistic room proportions
+- **Compact 1BHK Optimization** — Specialized logic for small plots (<600 sqft)
+- **Gap-Fix Pass** — Automated geometry verification to eliminate floating-point gaps between room boundaries
+- **Random Seed Variants** — Every generation produces a unique layout; regenerate for different configurations
 
-### 📐 BSP-VASTU Generation
-- **Dynamic Columns**: Randomized column strategies (`west_heavy`, `balanced`, `east_heavy`) for varied corridor placement.
-- **Procedural Corridors**: Intelligent movement flow generation with Vastu-compliant Pooja room integration.
-- **Indian Standard Toilets**: Optimized dimensions (1.4m–1.8m) and placement based on modern Indian architectural standards.
+### 📊 Vastu Compliance Scoring
+- Per-room scoring against preferred directional zones (N/S/E/W) per Vastu Shastra
+- Overall score (0–100) with grade (A+/A/B+/B/C/D)
+- Directional balance breakdown (North/East/South/West percentages)
+- AI-generated observations per room placement
 
-### 🛠️ Professional CAD Export (DXF)
-- **Wall Deduplication**: Coordinate rounding (10mm precision) to ensure shared walls are drawn as single segments.
-- **AIA Layer Standards**: Organized exports into standard layers (`A-WALL-EXT`, `A-WALL-INT`, `A-DOOR`, `A-GLAZ`, etc.).
-- **Precise Geometry**: Accurate door arcs and centered room labels with auto-scaling dimensions.
+### 🌍 Environmental Analysis Suite
+- **Sun Path Analysis** — SunCalc.js integration; per-room sunlight exposure across dawn, morning, noon, evening, dusk for any Indian city
+- **Heat Signature** — Real-time room temperature estimation using solar position + OpenWeatherMap (with seasonal fallback data for 8 cities)
+- **Air Circulation** — Wind-based cross-ventilation scoring per room; overall airflow rating
+- **Crowd Simulation** — Agent-based occupancy simulation with CO₂ buildup, bottleneck detection, and movement flow across presets (Morning Routine, Evening Party, Night, Custom)
+- **Fire Safety & Evacuation** — A* pathfinding on the room graph; evacuation routes, time-to-exit per room, dead-end detection
+- **Disaster Risk Analysis** — Seismic zone (IS 1893:2016) and flood risk data for all major Indian cities; live USGS earthquake feed
 
-### 🎨 Interactive UI Rendering
-- **Visual Polish**: Color-coded room types (Living, Bedroom, Kitchen, Pooja) for instant recognition.
-- **Architectural Notation**: 3-tick professional window symbols and visual door swings.
-- **Auto-Dimensioning**: Integrated top and right dimension lines for quick measurement reference.
-- **Title Block**: Professional architectural title block with project metadata and Vastu compliance score.
+### 🗺️ Floor Plan Canvas (2D)
+- Konva.js interactive rendering with color-coded room types
+- Professional architectural notation: 3-tick window symbols, door swing arcs, dimension lines
+- Scale bar and north arrow overlay
+- Unit toggle (ft ↔ m)
+
+### 🧊 3D Visualization
+- Three.js scene built from 2D room coordinates — walls, doors, windows, ceiling, floor labels
+- Animated sun orbit synced to real solar position (SunCalc) with time-of-day slider
+- Heat map overlay mode
+- Orbit controls (drag, zoom, pan); fullscreen mode
+
+### ✏️ Plan Editor
+- Drag-to-move and resize rooms on a snap grid (0.5m)
+- Edge-attachment snapping between adjacent rooms
+- Apply edits back to the canvas and all analysis components
+
+### 🛠️ CAD Export (DXF)
+- AIA National CAD Standard layers (`A-WALL-EXT`, `A-WALL-INT`, `A-DOOR`, `A-GLAZ`, `A-ANNO-TEXT`, `A-ANNO-DIMS`)
+- Wall deduplication at 10mm precision; accurate door arcs
+- Professional title block with client name, plot dimensions, and Vastu score
+
+### 📄 PDF Report
+- jsPDF-generated report with floor plan image, room schedule, compliance score, and project metadata
+
+### 💾 My Projects
+- Auto-saves every generated plan to browser localStorage (up to 20 plans)
+- Load any past plan back into the canvas instantly
+
+### 📚 Vastu Guide
+- Built-in reference panel covering all 9 zones (N, NE, E, SE, S, SW, W, NW, Brahmasthan)
+- Per-zone: ideal rooms, rooms to avoid, and Vastu principle explanation
+
+### 🎨 Dashboard UI
+- Material Design 3 dark theme — warm amber/teal palette (Noto Serif + Manrope)
+- 3-column layout: input sidebar → floor plan canvas → compliance + analysis panel
+- Analysis tabs (Sun / Heat / Air / Crowd / Fire / Risk) in right panel
+- Bottom toolbar pill: 2D / 3D / Edit / unit toggle
+- Share button with URL state sync
 
 ## Quick Start
 
