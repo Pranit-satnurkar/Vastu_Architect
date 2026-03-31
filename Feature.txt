@@ -1,0 +1,98 @@
+Feature breakdown by complexity:
+Phase 1 — Current (you're here)
+✅ 2D floor plan generation
+✅ Vastu compliance scoring  
+✅ DXF export
+🔄 BSP varied layouts
+
+Phase 2 — 3D Visualization
+Tool: xeokit SDK (link you shared — perfect choice)
+      Three.js as simpler alternative
+      
+What it does:
+  Convert your 2D room coordinates → 3D walls
+  Add roof, doors, windows in 3D
+  Interactive walkthrough in browser
+  
+Effort: 3-4 weeks
+Cost: xeokit is open source, free
+
+Phase 3 — GIS Integration
+Sun path analysis:
+  Tool: SunCalc.js (free, open source)
+  Data: latitude/longitude from user location
+  Output: which rooms get morning/evening sun
+  Vastu connection: validates East/North room placement
+
+Heat signature:
+  Tool: OpenWeatherMap API (free tier)
+  Data: local temperature, humidity, wind direction
+  Output: optimal wall thickness, window placement
+  
+Air circulation:
+  Tool: Math-based CFD simulation (simplified)
+  Data: window positions, room volumes
+  Output: airflow score per room
+
+Flood/earthquake zones:
+  Tool: USGS API (free), Bhunaksha India (free)
+  Data: GPS coordinates
+  Output: risk score, foundation recommendations
+  
+Effort: 6-8 weeks per feature
+Cost: mostly free APIs
+
+Phase 4 — Crowd Simulation
+Tool: Custom agent-based simulation
+      Each person = an agent that moves room to room
+      
+Metrics:
+  Bottleneck detection (narrow corridors)
+  CO2 buildup simulation per room volume
+  Temperature spread based on occupancy
+  
+Real world use case:
+  "Your corridor is 1.2m wide — 
+   3 people can't pass simultaneously"
+  "Living room with 8 people needs 
+   cross ventilation within 20 minutes"
+
+Effort: 8-10 weeks
+This is genuinely novel — no tool does this for homes
+
+Phase 5 — Fire Safety
+Tool: Custom pathfinding (A* algorithm)
+Data: room connections, door positions (you have this!)
+Output: 
+  Evacuation route overlay on floor plan
+  Time to exit per room
+  Safe assembly point suggestion
+  Dead end detection 
+
+Effort: 2-3 weeks (A* is well documented)
+
+Tech stack for full vision:
+Current:
+  FastAPI + Python backend
+  Next.js frontend
+  Konva.js 2D canvas
+
+Add for 3D:
+  Three.js or xeokit-sdk
+  IFC file format (industry standard 3D buildings)
+
+Add for GIS:
+  Mapbox GL JS (free tier generous)
+  Turf.js (geospatial calculations)
+  SunCalc.js (sun position)
+  OpenWeatherMap API
+  Bhunaksha API (India specific hazard maps)
+
+Add for simulation:
+  Custom Python agents (crowd sim)
+  NetworkX (pathfinding for fire exits)
+  NumPy (CFD approximations)
+
+Database (when you need it):
+  PostgreSQL + PostGIS (for GIS data)
+  Redis (for caching generated plans)

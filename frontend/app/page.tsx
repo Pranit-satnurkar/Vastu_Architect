@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import jsPDF from "jspdf";
+import React, { useState, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import {
   Home,
   Ruler,
@@ -13,13 +13,31 @@ import {
   Maximize2,
   AlertCircle,
   Loader2,
+  Box,
+  Link2,
+  Check,
+  Pencil,
 } from "lucide-react";
 import FloorPlanCanvas from "../components/FloorPlanCanvas";
+import SunAnalysis from "../components/SunAnalysis";
+import HeatSignature from "../components/HeatSignature";
+import AirCirculation from "../components/AirCirculation";
+import RiskAnalysis from "../components/RiskAnalysis";
+import CrowdSimulation from "../components/CrowdSimulation";
+import FireSafety from "../components/FireSafety";
+import { generatePlanReport } from "../lib/reportGenerator";
+const FloorPlan3D  = dynamic(() => import("../components/FloorPlan3D"),  { ssr: false });
+const PlanEditor   = dynamic(() => import("../components/PlanEditor"),   { ssr: false });
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+function getURLParam(key: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  return new URLSearchParams(window.location.search).get(key) ?? fallback;
 }
 
 const BHK_TYPES = ["1BHK", "2BHK", "3BHK", "4BHK"];
@@ -32,20 +50,66 @@ const QUICK_SIZES = [
   { w: "50", d: "80" },
 ];
 
+function FireSafetyToggle({ data }: { data: any }) {
+  const [show, setShow] = useState(false);
+  return show ? (
+    <FireSafety data={data} />
+  ) : (
+    <button
+      onClick={() => setShow(true)}
+      className="w-full py-2.5 rounded-xl border border-dashed border-border/40 text-xs text-gray-600 hover:text-gray-400 hover:border-border/70 transition-colors"
+    >
+      🔥 Show Fire Safety & Evacuation Analysis
+    </button>
+  );
+}
+
 export default function VastuArchitectPage() {
-  const [bhkType, setBhkType] = useState("3BHK");
-  const [plotW, setPlotW] = useState("30");
-  const [plotD, setPlotD] = useState("50");
-  const [style, setStyle] = useState("modern");
-  const [prompt, setPrompt] = useState("");
+  const [bhkType, setBhkType] = useState(() => getURLParam("bhk", "3BHK"));
+  const [plotW, setPlotW] = useState(() => getURLParam("w", "30"));
+  const [plotD, setPlotD] = useState(() => getURLParam("d", "50"));
+  const [style, setStyle] = useState(() => getURLParam("style", "modern"));
+  const [prompt, setPrompt] = useState(() => getURLParam("prompt", ""));
   const [units, setUnits] = useState<"ft" | "m">("ft");
   const [loading, setLoading] = useState(false);
   const [dxfLoading, setDxfLoading] = useState(false);
   const [planData, setPlanData] = useState<any>(null);
   const [error, setError] = useState("");
   const [clientName, setClientName] = useState("Vastu Architect");
+  const [view3D, setView3D] = useState(false);
+  const [city, setCity] = useState(() => getURLParam("city", "Delhi"));
+  const [copied, setCopied] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
   const stageRef = useRef<any>(null);
+
+  // ── URL state sync ──────────────────────────────────────────────────────────
+  const updateURL = (extra: Record<string, string> = {}) => {
+    const params = new URLSearchParams();
+    params.set("bhk",   bhkType);
+    params.set("w",     plotW);
+    params.set("d",     plotD);
+    params.set("style", style);
+    params.set("city",  city);
+    if (prompt.trim()) params.set("prompt", prompt.trim());
+    Object.entries(extra).forEach(([k, v]) => params.set(k, v));
+    window.history.replaceState({}, "", `?${params.toString()}`);
+  };
+
+  const copyShareLink = async () => {
+    updateURL();
+    await navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  // Auto-generate if URL has params (shared link)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("bhk")) {
+      generatePlan();
+    }
+  }, []);
 
   const grade = planData?.compliance?.grade ?? "-";
   const score = Math.round(planData?.compliance?.overall ?? 0);
@@ -94,7 +158,8 @@ export default function VastuArchitectPage() {
 
       const data = await res.json();
       setPlanData(data);
-      setError(""); // Clear any previous errors
+      setError("");
+      updateURL();
     } catch (e: any) {
       const errorMsg = e?.message || String(e);
       console.error("Plan generation error:", errorMsg);
@@ -136,84 +201,12 @@ export default function VastuArchitectPage() {
     }
   };
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     const stage = stageRef.current;
     if (!stage || !planData) return;
 
-    // Export canvas at 3x resolution for high-DPI printing
-    const dataURL = stage.toDataURL({
-      pixelRatio: 3,
-      mimeType: "image/png",
-      quality: 1,
-    });
-
-    // Create A3 landscape PDF — better for floor plans
-    const pdf = new jsPDF({
-      orientation: "landscape",
-      unit: "mm",
-      format: "a3",
-    });
-
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-
-    // Add floor plan image — full page with margins, no duplicate header above it
-    const margin = 15;
-    const imgWidth = pageWidth - margin * 2;
-    const imgHeight = pageHeight - 55; // leave room for bottom title block
-    pdf.addImage(dataURL, "PNG", margin, margin, imgWidth, imgHeight);
-
-    // Separator line above title block
-    pdf.setDrawColor("#333333");
-    pdf.setLineWidth(0.5);
-    pdf.line(0, pageHeight - 40, pageWidth, pageHeight - 40);
-
-    // Title block content (three columns)
-
-    // LEFT: Branding
-    pdf.setFontSize(11);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor("#000000");
-    pdf.text("VASTU ARCHITECT AI", margin, pageHeight - 25);
-    pdf.setFontSize(8);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor("#888888");
-    pdf.text("AI-Powered Floor Plan Generator", margin, pageHeight - 15);
-
-    // CENTER: Plot Info
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor("#000000");
-    pdf.text(
-      `${bhkType} | ${plotW}ft × ${plotD}ft`,
-      pageWidth / 2,
-      pageHeight - 25,
-      { align: "center" },
-    );
-    pdf.setFontSize(8);
-    pdf.setTextColor("#888888");
-    pdf.text(`Style: ${style}`, pageWidth / 2, pageHeight - 15, {
-      align: "center",
-    });
-
-    // RIGHT: Scores & URL
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor("#000000");
-    pdf.text(
-      `Score: ${score}/100  Grade: ${grade}`,
-      pageWidth - margin,
-      pageHeight - 25,
-      { align: "right" },
-    );
-    pdf.setFontSize(8);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor("#888888");
-    pdf.text("pranit-vision.vercel.app", pageWidth - margin, pageHeight - 15, {
-      align: "right",
-    });
-
-    pdf.save(`VastuPlan_${plotW}x${plotD}.pdf`);
+    const dataURL = stage.toDataURL({ pixelRatio: 3, mimeType: "image/png", quality: 1 });
+    await generatePlanReport(planData, dataURL, city);
   };
 
   const downloadDXF = async () => {
@@ -378,6 +371,23 @@ export default function VastuArchitectPage() {
                 rows={3}
                 className="w-full bg-[#111] border border-border rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all text-sm resize-none"
               />
+            </div>
+
+            {/* LOCATION */}
+            <div>
+              <label className="text-sm font-medium text-gray-300 mb-2 block flex items-center gap-2">
+                <Map className="w-4 h-4" /> Location
+              </label>
+              <select
+                value={city}
+                onChange={e => setCity(e.target.value)}
+                className="w-full bg-[#111] border border-border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all text-sm"
+              >
+                {["Delhi","Mumbai","Bangalore","Chennai","Kolkata","Hyderabad","Ahmedabad","Pune"].map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-gray-600 mt-1">Used for sun, heat, air & risk analysis</p>
             </div>
 
             {/* GENERATE BUTTON */}
@@ -578,7 +588,43 @@ export default function VastuArchitectPage() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
+                    <button
+                      onClick={() => { setEditMode((v) => !v); setView3D(false); }}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 font-semibold rounded-lg transition-colors",
+                        editMode
+                          ? "bg-amber-600 text-white hover:bg-amber-700"
+                          : "bg-border/40 text-gray-300 hover:bg-border/60",
+                      )}
+                      title="Edit floor plan"
+                    >
+                      <Pencil className="w-4 h-4" /> Edit
+                    </button>
+                    <button
+                      onClick={() => { setView3D((v) => !v); setEditMode(false); }}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 font-semibold rounded-lg transition-colors",
+                        view3D
+                          ? "bg-purple-600 text-white hover:bg-purple-700"
+                          : "bg-border/40 text-gray-300 hover:bg-border/60",
+                      )}
+                    >
+                      <Box className="w-4 h-4" /> {view3D ? "3D" : "2D"}
+                    </button>
+                    <button
+                      onClick={copyShareLink}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 font-semibold rounded-lg transition-all",
+                        copied
+                          ? "bg-green-600 text-white"
+                          : "bg-border/40 text-gray-300 hover:bg-border/60",
+                      )}
+                      title="Copy shareable link"
+                    >
+                      {copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                      {copied ? "Copied!" : "Share"}
+                    </button>
                     <button
                       onClick={downloadPNG}
                       className="flex items-center gap-2 px-4 py-2 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors"
@@ -600,17 +646,33 @@ export default function VastuArchitectPage() {
                   </div>
                 </div>
 
-                <div className="flex-1 bg-white rounded-xl shadow-inner relative group">
-                  <FloorPlanCanvas
-                    data={planData}
-                    units={units}
-                    onStageRef={(ref) => (stageRef.current = ref)}
-                  />
-                  <div className="absolute inset-x-0 bottom-4 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="bg-black/80 px-4 py-2 rounded-full text-[10px] font-bold tracking-tighter text-white/50 backdrop-blur-md">
-                      Interactive Konvas Rendering Engine
+                <div className={cn(
+                  "flex-1 shadow-inner relative group overflow-hidden rounded-xl",
+                  editMode ? "bg-[#0f172a]" : "bg-white",
+                )}>
+                  {editMode ? (
+                    <PlanEditor
+                      data={planData}
+                      onApply={(newData) => { setPlanData(newData); setEditMode(false); }}
+                      onClose={() => setEditMode(false)}
+                    />
+                  ) : view3D ? (
+                    <FloorPlan3D data={planData} city={city} />
+                  ) : (
+                    <FloorPlanCanvas
+                      key={planData?.template_used ?? planData?.room_count}
+                      data={planData}
+                      units={units}
+                      onStageRef={(ref) => (stageRef.current = ref)}
+                    />
+                  )}
+                  {!editMode && (
+                    <div className="absolute inset-x-0 bottom-4 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      <div className="bg-black/80 px-4 py-2 rounded-full text-[10px] font-bold tracking-tighter text-white/50 backdrop-blur-md">
+                        {view3D ? "Three.js 3D Engine — drag to orbit, scroll to zoom" : "Interactive Konva Rendering Engine"}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </>
             ) : (
@@ -651,6 +713,24 @@ export default function VastuArchitectPage() {
               </div>
             )}
           </div>
+
+          {/* SUN ANALYSIS — shown once a plan is generated */}
+          {planData && <SunAnalysis data={planData} city={city} />}
+
+          {/* HEAT SIGNATURE — collapsible */}
+          {planData && <HeatSignature data={planData} city={city} />}
+
+          {/* AIR CIRCULATION — collapsible */}
+          {planData && <AirCirculation data={planData} city={city} />}
+
+          {/* CROWD SIMULATION */}
+          {planData && <CrowdSimulation data={planData} />}
+
+          {/* FIRE SAFETY — opt-in */}
+          {planData && <FireSafetyToggle data={planData} />}
+
+          {/* DISASTER RISK */}
+          {planData && <RiskAnalysis city={city} />}
         </main>
       </div>
     </div>

@@ -5,3 +5,4 @@ ezdxf
 shapely
 python-dotenv
 pydantic
+requests

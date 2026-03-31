@@ -9,6 +9,7 @@ from src.export.dxf_exporter import generate_professional_dxf
 import google.generativeai as genai
 import json
 import os
+import requests as http_requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -75,9 +76,147 @@ class DXFExportRequest(BaseModel):
     unit_system: str = "metric"  # "metric" or "imperial"
 
 
+# Seasonal fallback weather for Indian cities (March–April averages)
+_CITY_FALLBACK = {
+    "Delhi":     {"temp_c": 32.0, "humidity": 30, "wind_speed": 3.5, "wind_deg": 270, "description": "Sunny (fallback)"},
+    "Mumbai":    {"temp_c": 30.0, "humidity": 70, "wind_speed": 4.0, "wind_deg": 225, "description": "Humid (fallback)"},
+    "Bangalore": {"temp_c": 26.0, "humidity": 55, "wind_speed": 2.5, "wind_deg": 180, "description": "Pleasant (fallback)"},
+    "Chennai":   {"temp_c": 33.0, "humidity": 65, "wind_speed": 3.0, "wind_deg": 135, "description": "Hot (fallback)"},
+    "Kolkata":   {"temp_c": 33.0, "humidity": 60, "wind_speed": 2.0, "wind_deg": 180, "description": "Warm (fallback)"},
+    "Hyderabad": {"temp_c": 34.0, "humidity": 35, "wind_speed": 3.0, "wind_deg": 225, "description": "Hot & Dry (fallback)"},
+    "Ahmedabad": {"temp_c": 35.0, "humidity": 25, "wind_speed": 4.0, "wind_deg": 270, "description": "Hot & Dry (fallback)"},
+    "Pune":      {"temp_c": 30.0, "humidity": 40, "wind_speed": 2.5, "wind_deg": 225, "description": "Warm (fallback)"},
+}
+
+_CITY_COORDS = {
+    "Delhi":     (28.6139, 77.2090), "Mumbai":    (19.0760, 72.8777),
+    "Bangalore": (12.9716, 77.5946), "Chennai":   (13.0827, 80.2707),
+    "Kolkata":   (22.5726, 88.3639), "Hyderabad": (17.3850, 78.4867),
+    "Ahmedabad": (23.0225, 72.5714), "Pune":      (18.5204, 73.8567),
+}
+
+
+@app.get("/weather")
+def get_weather(city: str = "Delhi"):
+    api_key = os.getenv("OPENWEATHER_API_KEY", "")
+    fallback = _CITY_FALLBACK.get(city, _CITY_FALLBACK["Delhi"])
+
+    if not api_key or api_key == "your_api_key_here":
+        return {**fallback, "city": city, "source": "fallback"}
+
+    lat, lon = _CITY_COORDS.get(city, _CITY_COORDS["Delhi"])
+    try:
+        resp = http_requests.get(
+            "https://api.openweathermap.org/data/2.5/weather",
+            params={"lat": lat, "lon": lon, "appid": api_key, "units": "metric"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        d = resp.json()
+        return {
+            "city":        city,
+            "temp_c":      d["main"]["temp"],
+            "feels_like":  d["main"]["feels_like"],
+            "humidity":    d["main"]["humidity"],
+            "wind_speed":  d["wind"]["speed"],
+            "wind_deg":    d["wind"].get("deg", 0),
+            "description": d["weather"][0]["description"].title(),
+            "source":      "live",
+        }
+    except Exception:
+        return {**fallback, "city": city, "source": "fallback"}
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ── Seismic zone data (IS 1893:2016, Bureau of Indian Standards) ──────────────
+_SEISMIC_ZONE = {
+    "Delhi":     {"zone": "IV",  "risk": "High",      "pga": "0.24g"},
+    "Mumbai":    {"zone": "III", "risk": "Moderate",  "pga": "0.16g"},
+    "Bangalore": {"zone": "II",  "risk": "Low",       "pga": "0.10g"},
+    "Chennai":   {"zone": "III", "risk": "Moderate",  "pga": "0.16g"},
+    "Kolkata":   {"zone": "III", "risk": "Moderate",  "pga": "0.16g"},
+    "Hyderabad": {"zone": "II",  "risk": "Low",       "pga": "0.10g"},
+    "Ahmedabad": {"zone": "III", "risk": "Moderate",  "pga": "0.16g"},
+    "Pune":      {"zone": "III", "risk": "Moderate",  "pga": "0.16g"},
+}
+
+# Seismic foundation recommendations per zone
+_SEISMIC_ADVICE = {
+    "II":  "Isolated footings adequate. Standard RCC framing sufficient.",
+    "III": "Raft or strip footing recommended. Ductile detailing required for RCC.",
+    "IV":  "Raft foundation strongly advised. Full seismic-resistant framing (IS 13920) mandatory.",
+    "V":   "Pile/raft foundation only. Strict IS 13920 compliance. Avoid soft soil sites.",
+}
+
+# ── Flood risk data (NDMA / CWC published flood-prone areas) ─────────────────
+_FLOOD_RISK = {
+    "Delhi":     {"level": "High",   "reason": "Yamuna floodplain, monsoon inundation"},
+    "Mumbai":    {"level": "High",   "reason": "Coastal city, low-lying areas, heavy monsoon"},
+    "Bangalore": {"level": "Low",    "reason": "Elevated plateau, good natural drainage"},
+    "Chennai":   {"level": "High",   "reason": "Coastal + Adyar/Cooum river flooding"},
+    "Kolkata":   {"level": "High",   "reason": "Hooghly river delta, low elevation"},
+    "Hyderabad": {"level": "Medium", "reason": "Musi river, localised low-lying areas"},
+    "Ahmedabad": {"level": "Medium", "reason": "Sabarmati river floodplain"},
+    "Pune":      {"level": "Medium", "reason": "Mula-Mutha river confluence"},
+}
+
+_FLOOD_ADVICE = {
+    "Low":    "Standard plinth height (450 mm) adequate. Normal waterproofing.",
+    "Medium": "Plinth height ≥ 600 mm above road level. Waterproof basement walls.",
+    "High":   "Plinth ≥ 900 mm. No basement recommended. Flood vents + waterproofing mandatory.",
+}
+
+
+@app.get("/risk")
+def get_risk(city: str = "Delhi"):
+    seismic = _SEISMIC_ZONE.get(city, _SEISMIC_ZONE["Delhi"])
+    flood   = _FLOOD_RISK.get(city, _FLOOD_RISK["Delhi"])
+    lat, lon = _CITY_COORDS.get(city, _CITY_COORDS["Delhi"])
+
+    # Recent earthquakes — USGS public API (global coverage)
+    recent_quakes = []
+    try:
+        resp = http_requests.get(
+            "https://earthquake.usgs.gov/fdsnws/event/1/query",
+            params={
+                "format":       "geojson",
+                "latitude":     lat,
+                "longitude":    lon,
+                "maxradiuskm":  800,
+                "minmagnitude": 2.5,
+                "limit":        5,
+                "orderby":      "time",
+            },
+            timeout=6,
+        )
+        resp.raise_for_status()
+        for f in resp.json().get("features", []):
+            p = f["properties"]
+            recent_quakes.append({
+                "place": p.get("place", "Unknown"),
+                "mag":   p.get("mag"),
+                "time":  p.get("time"),      # ms epoch
+                "depth": f["geometry"]["coordinates"][2] if f.get("geometry") else None,
+            })
+    except Exception:
+        pass  # live data optional — degrade gracefully
+
+    return {
+        "city":    city,
+        "seismic": {
+            **seismic,
+            "advice": _SEISMIC_ADVICE.get(seismic["zone"], ""),
+        },
+        "flood": {
+            **flood,
+            "advice": _FLOOD_ADVICE.get(flood["level"], ""),
+        },
+        "recent_quakes": recent_quakes,
+    }
 
 
 @app.post("/generate-plan")
