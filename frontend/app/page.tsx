@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-import FloorPlanCanvas from "../components/FloorPlanCanvas";
 import SunAnalysis from "../components/SunAnalysis";
 import HeatSignature from "../components/HeatSignature";
 import AirCirculation from "../components/AirCirculation";
@@ -14,8 +13,9 @@ import CrowdSimulation from "../components/CrowdSimulation";
 import FireSafety from "../components/FireSafety";
 import { generatePlanReport } from "../lib/reportGenerator";
 
-const FloorPlan3D = dynamic(() => import("../components/FloorPlan3D"), { ssr: false });
-const PlanEditor  = dynamic(() => import("../components/PlanEditor"),  { ssr: false });
+const FloorPlanCanvas = dynamic(() => import("../components/FloorPlanCanvas"), { ssr: false });
+const FloorPlan3D     = dynamic(() => import("../components/FloorPlan3D"),     { ssr: false });
+const PlanEditor      = dynamic(() => import("../components/PlanEditor"),      { ssr: false });
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -281,7 +281,7 @@ export default function VastuArchitectPage() {
 
   // ── Derived compliance data ──────────────────────────────────────────────────
   const compliance = planData?.compliance ?? null;
-  const score      = Math.round(compliance?.overall ?? 0);
+  const score      = Math.round(compliance?.score ?? compliance?.overall ?? 0);
   const grade      = compliance?.grade ?? "—";
   const dashOffset = planData ? GAUGE_C - (score / 100) * GAUGE_C : GAUGE_C;
 
@@ -333,7 +333,7 @@ export default function VastuArchitectPage() {
         plotD,
         city,
         styleName: STYLE_OPTS[styleIdx].label,
-        score:     Math.round(data.compliance?.overall ?? 0),
+        score:     Math.round(data.compliance?.score ?? data.compliance?.overall ?? 0),
         grade:     data.compliance?.grade ?? "—",
         roomCount: data.room_count ?? 0,
         planData:  data,

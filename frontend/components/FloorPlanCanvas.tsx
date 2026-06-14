@@ -9,12 +9,17 @@ const ROOM_COLORS: any = {
     'Bedroom': '#FEF3C7',
     'Bedroom 1': '#FEF3C7',
     'Bedroom 2': '#FEF3C7',
+    'Bedroom 3': '#FEF3C7',
     'Kitchen': '#FCE7F3',           // light pink
     'Dining': '#D1FAE5',            // light green
     'Kitchen & Dining': '#FCE7F3',
     'Toilet': '#ECFDF5',            // very light green
     'Toilet 1': '#ECFDF5',
     'Toilet 2': '#ECFDF5',
+    'Bathroom': '#ECFDF5',
+    'Bathroom 1': '#ECFDF5',
+    'Bathroom 2': '#ECFDF5',
+    'Ensuite': '#ECFDF5',
     'Pooja': '#FFF7ED',             // light orange
     'Corridor': '#F3F4F6',          // light gray
     'Store': '#F3F4F6',
@@ -131,20 +136,6 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ data, units = "ft", o
         }
         return <Group key="windows">{elements}</Group>;
     };
-
-    // Collect unique row boundaries for right dimension lines
-    const getRowBoundaries = () => {
-        const colARooms = data.rooms.filter((r: any) => r.x < data.plot_w_m * 0.45);
-        const yBounds: number[] = [0];
-        colARooms.forEach((r: any) => {
-            if (!yBounds.includes(r.y)) yBounds.push(r.y);
-            if (!yBounds.includes(r.y + r.h)) yBounds.push(r.y + r.h);
-        });
-        yBounds.sort((a, b) => a - b);
-        return yBounds;
-    };
-
-    const yBounds = getRowBoundaries();
 
     return (
         <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
@@ -305,46 +296,42 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ data, units = "ft", o
                         );
                     })}
 
-                    {/* DIMENSION LINES - TOP (Column Widths) */}
-                    <Group key="top-dims">
-                        {[0, 1, 2].map((colIdx) => {
-                            const colRooms = data.rooms.filter((r: any) => Math.round(r.x * 1000) / 1000 < data.plot_w_m * 0.42 && colIdx === 0 || Math.abs(r.x - (colIdx === 0 ? 0.23 : (colIdx === 1 ? data.plot_w_m * 0.34 : data.plot_w_m * 0.37))) < 0.1);
-                            if (colRooms.length === 0) return null;
-                            const col = { x: colRooms[0].x, w: colRooms[0].w };
-                            const x1 = offsetX + col.x * ppm;
-                            const x2 = offsetX + (col.x + col.w) * ppm;
+                    {/* OVERALL PLOT WIDTH DIMENSION - TOP (layout-agnostic) */}
+                    <Group key="top-dim">
+                        {(() => {
+                            const x1 = offsetX;
+                            const x2 = offsetX + plotWpx;
                             const y = offsetY - 40;
                             return (
-                                <Group key={`col-${colIdx}`}>
+                                <Group>
                                     <Line points={[x1, y, x2, y]} stroke="#888" strokeWidth={1} />
                                     <Line points={[x1, y, x1, y + 8]} stroke="#888" strokeWidth={1} />
                                     <Line points={[x2, y, x2, y + 8]} stroke="#888" strokeWidth={1} />
                                     <Line points={[x1, offsetY, x1, y + 8]} stroke="#ddd" strokeWidth={0.5} />
                                     <Line points={[x2, offsetY, x2, y + 8]} stroke="#ddd" strokeWidth={0.5} />
-                                    <Text x={(x1 + x2) / 2} y={y - 18} text={getDimensionText(col.w, units)} fontSize={9} fill="#333" align="center" />
+                                    <Text x={(x1 + x2) / 2 - 30} y={y - 18} width={60} text={getDimensionText(data.plot_w_m, units)} fontSize={10} fontStyle="bold" fill="#333" align="center" />
                                 </Group>
                             );
-                        })}
+                        })()}
                     </Group>
 
-                    {/* DIMENSION LINES - RIGHT (Row Heights) */}
-                    <Group key="right-dims">
-                        {data.rooms.filter((r: any) => r.x < data.plot_w_m * 0.45).sort((a, b) => a.y - b.y).map((room: any, i: number) => {
-                            if (room.h < 0.8) return null; // skip very thin rooms
-                            const y1 = offsetY + room.y * ppm;
-                            const y2 = offsetY + (room.y + room.h) * ppm;
+                    {/* OVERALL PLOT DEPTH DIMENSION - RIGHT (layout-agnostic) */}
+                    <Group key="right-dim">
+                        {(() => {
+                            const y1 = offsetY;
+                            const y2 = offsetY + plotHpx;
                             const x = offsetX + plotWpx + 30;
                             return (
-                                <Group key={`row-${i}`}>
+                                <Group>
                                     <Line points={[x, y1, x, y2]} stroke="#888" strokeWidth={1} />
                                     <Line points={[x, y1, x - 8, y1]} stroke="#888" strokeWidth={1} />
                                     <Line points={[x, y2, x - 8, y2]} stroke="#888" strokeWidth={1} />
                                     <Line points={[offsetX + plotWpx, y1, x - 8, y1]} stroke="#ddd" strokeWidth={0.5} />
                                     <Line points={[offsetX + plotWpx, y2, x - 8, y2]} stroke="#ddd" strokeWidth={0.5} />
-                                    <Text x={x + 8} y={(y1 + y2) / 2 - 6} text={getDimensionText(room.h, units)} fontSize={9} fill="#333" align="left" />
+                                    <Text x={x + 6} y={(y1 + y2) / 2 - 6} text={getDimensionText(data.plot_d_m, units)} fontSize={10} fontStyle="bold" fill="#333" align="left" />
                                 </Group>
                             );
-                        })}
+                        })()}
                     </Group>
 
                     {/* SCALE BAR - Bottom Left */}
@@ -389,7 +376,7 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({ data, units = "ft", o
                             align="center"
                         />
                         {/* Right column */}
-                        <Text x={offsetX + plotWpx} y={offsetY + plotHpx + 42} text={`Vastu Score: ${Math.round(data.compliance?.overall ?? 0)}/100`} fontSize={11} fill="#1a1a1a" align="right" />
+                        <Text x={offsetX + plotWpx} y={offsetY + plotHpx + 42} text={`Vastu Score: ${Math.round(data.compliance?.score ?? data.compliance?.overall ?? 0)}/100`} fontSize={11} fill="#1a1a1a" align="right" />
                         <Text x={offsetX + plotWpx} y={offsetY + plotHpx + 54} text={`Grade ${data.compliance?.grade ?? '-'}`} fontSize={9} fill={getGradeColor(data.compliance?.grade ?? '-')} align="right" />
                         <Text x={offsetX + plotWpx} y={offsetY + plotHpx + 66} text="pranit-vision.vercel.app" fontSize={8} fill="#9ca3af" align="right" />
                     </Group>
