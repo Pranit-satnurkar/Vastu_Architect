@@ -1,24 +1,26 @@
-from typing import Any, Dict, List, Tuple
-from .layout_engine import generate_layout
+from typing import Any, Dict, List
+from src.core.floorplan.generator import generate as generate_arch_layout
+
+PPM = 20
 
 
 def optimize_layout(bhk_type, plot_w_ft, plot_d_ft,
                     style="modern",
                     user_preferences=None):
     """
-    Primary layout entry point.
-    Delegates entirely to the real-plan engine (layout_engine.py).
-    Adds pixel coordinates for the frontend canvas.
+    Primary layout entry point. Delegates to the rule-driven architectural
+    generator (non-Vastu). Falls back to the scaled template engine on failure
+    (handled inside the generator). Vastu is scored separately, not enforced.
     """
-    ppm = 20
+    result = generate_arch_layout(bhk_type, plot_w_ft, plot_d_ft, style)
 
-    result = generate_layout(bhk_type, plot_w_ft, plot_d_ft, style)
-
-    for r in result["rooms"]:
-        r["x_px"] = round(r["x"] * ppm)
-        r["y_px"] = round(r["y"] * ppm)
-        r["w_px"] = round(r["w"] * ppm)
-        r["h_px"] = round(r["h"] * ppm)
+    # Ensure pixel coords exist (BSP engine adds them, fallback may not)
+    for r in result.get("rooms", []):
+        if "x_px" not in r:
+            r["x_px"] = round(r["x"] * PPM)
+            r["y_px"] = round(r["y"] * PPM)
+            r["w_px"] = round(r["w"] * PPM)
+            r["h_px"] = round(r["h"] * PPM)
 
     return result
 
@@ -40,6 +42,7 @@ def compute_vastu_compliance(
         "Bedroom 3":      {"prefer_x": "west",   "prefer_y": "south"},
         "Bedroom":        {"prefer_x": "west",   "prefer_y": "south"},
         "Kitchen":        {"prefer_x": "east",   "prefer_y": "south"},
+        "Kitchen & Dining": {"prefer_x": "east", "prefer_y": "south"},
         "Dining":         {"prefer_x": "east",   "prefer_y": "south"},
         "Toilet 1":       {"prefer_x": "west",   "prefer_y": "north"},
         "Toilet 2":       {"prefer_x": "west",   "prefer_y": "north"},
@@ -47,6 +50,8 @@ def compute_vastu_compliance(
         "Toilet":         {"prefer_x": "west",   "prefer_y": "north"},
         "Pooja":          {"prefer_x": "east",   "prefer_y": "north"},
         "Corridor":       {"prefer_x": "center", "prefer_y": "center"},
+        "Foyer":          {"prefer_x": "center", "prefer_y": "north"},
+        "Study":          {"prefer_x": "east",   "prefer_y": "north"},
         "Store":          {"prefer_x": "west",   "prefer_y": "north"},
     }
 
@@ -60,37 +65,48 @@ def compute_vastu_compliance(
             return "east" if axis == "x" else "south"
         return "center"
 
-    def match(actual, prefer):
-        if prefer == "center":
-            return 1.0 if actual == "center" else 0.5
-        if actual == prefer:
-            return 1.0
-        return 0.5 if actual == "center" else 0.0
+    scored = 0
+    total = 0
+    details = []
 
-    scored: List[Tuple[str, float]] = []
-    for r in rooms:
-        name = r.get("name", "")
-        if name not in ZONES:
+    for room in rooms:
+        pref = ZONES.get(room["name"])
+        if not pref:
             continue
-        pref = ZONES[name]
-        cx = float(r.get("x", 0)) + float(r.get("w", 0)) / 2
-        cy = float(r.get("y", 0)) + float(r.get("h", 0)) / 2
-        sx = match(axis_zone(cx, plot_w, "x"), pref["prefer_x"])
-        sy = match(axis_zone(cy, plot_d, "y"), pref["prefer_y"])
-        scored.append((name, (sx + sy) / 2))
+        cx = room["x"] + room["w"] / 2
+        cy = room["y"] + room["h"] / 2
+        actual_x = axis_zone(cx, plot_w, "x")
+        actual_y = axis_zone(cy, plot_d, "y")
 
-    if not scored:
-        return {"overall": 0, "grade": "D", "summary": "No scorable rooms found."}
+        hits = 0
+        if pref["prefer_x"] == "center" or actual_x == pref["prefer_x"]:
+            hits += 1
+        if pref["prefer_y"] == "center" or actual_y == pref["prefer_y"]:
+            hits += 1
 
-    overall = round(100 * sum(s for _, s in scored) / len(scored))
-    grade = (
-        "A+" if overall >= 90 else
-        "A"  if overall >= 80 else
-        "B+" if overall >= 70 else
-        "B"  if overall >= 60 else
-        "C"  if overall >= 50 else "D"
-    )
-    good = [n for n, s in scored if s >= 0.75]
-    summary = f"{len(good)}/{len(scored)} key rooms match preferred Vastu zones."
+        score = hits / 2
+        scored += score
+        total += 1
+        details.append({
+            "room": room["name"],
+            "score": score,
+            "preferred": f"{pref['prefer_x']}-{pref['prefer_y']}",
+            "actual": f"{actual_x}-{actual_y}",
+        })
 
-    return {"overall": overall, "grade": grade, "summary": summary}
+    overall = round((scored / total) * 100) if total else 0
+    if overall >= 85:
+        grade = "A"
+    elif overall >= 70:
+        grade = "B"
+    elif overall >= 55:
+        grade = "C"
+    else:
+        grade = "D"
+
+    return {
+        "score": overall,
+        "grade": grade,
+        "details": details,
+        "note": "Vastu score is informational. Modern homes at 70%+ are well-balanced.",
+    }
