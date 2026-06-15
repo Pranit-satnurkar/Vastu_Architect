@@ -115,6 +115,23 @@ def on_exterior(room: Rect, plot: Rect, eps: float = EPS) -> List[str]:
     return walls
 
 
+def exterior_walls(room: Rect, rooms: List[Rect], eps: float = EPS) -> List[str]:
+    """
+    Walls of `room` that face outside the building — i.e. not backed by another
+    room. Works for any footprint: a wall facing a garden cut-out or the plot
+    edge counts as exterior (good for windows). A wall is interior only if
+    another room shares it with a meaningful span.
+    """
+    backed = set()
+    for other in rooms:
+        if other is room:
+            continue
+        sw = shared_wall(room, other, eps)
+        if sw and sw[1] >= 0.3:
+            backed.add(sw[0])
+    return [w for w in ("N", "S", "E", "W") if w not in backed]
+
+
 def no_overlaps(rooms: List[Rect], eps: float = EPS) -> bool:
     for i in range(len(rooms)):
         for j in range(i + 1, len(rooms)):

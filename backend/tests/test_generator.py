@@ -1,7 +1,7 @@
 import random
 
 from src.core.floorplan.generator import generate
-from src.core.floorplan.geometry import Rect, no_overlaps, shared_wall
+from src.core.floorplan.geometry import Rect, no_overlaps, shared_wall, overlaps, contains
 
 BHKS = ["1BHK", "2BHK", "3BHK", "4BHK"]
 PLOTS = [(30, 50), (40, 60), (25, 40), (50, 80), (20, 35)]
@@ -63,6 +63,26 @@ def test_kitchen_adjacent_to_dining_when_arch():
         rects = {r["name"]: Rect(r["x"], r["y"], r["w"], r["h"]) for r in res["rooms"]}
         if "Kitchen" in rects and "Dining" in rects:
             assert shared_wall(rects["Kitchen"], rects["Dining"]) is not None
+
+
+def test_gardens_do_not_overlap_rooms():
+    for bhk in BHKS:
+        for (w, d) in PLOTS:
+            res = generate(bhk, w, d, "modern", seed=11)
+            if res["engine"] != "ARCH-v1":
+                continue
+            rooms = _rects(res)
+            plot = Rect(0, 0, res["plot_w_m"], res["plot_d_m"])
+            for g in res.get("gardens", []):
+                gr = Rect(g["x"], g["y"], g["w"], g["h"])
+                assert contains(plot, gr, eps=0.06)
+                for rm in rooms:
+                    assert not overlaps(rm, gr), f"room over garden {bhk} {w}x{d}"
+
+
+def test_shape_field_present():
+    res = generate("3BHK", 40, 60, "modern", seed=2)
+    assert res.get("shape") in ("full", "L", "U", "T")
 
 
 def test_never_raises_and_always_returns_rooms():

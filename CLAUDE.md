@@ -75,7 +75,7 @@ Two parallel UI systems — **Next.js frontend** is the primary interface, **Str
 |------|------|
 | `main.py` | FastAPI server — `/generate-plan`, `/export-dxf`, `/api/download-dxf`, `/weather`, `/risk`, `/health` |
 | `src/core/spatial_optimizer.py` | Primary entry point: calls `floorplan.generator.generate()`, adds pixel coords; also houses `compute_vastu_compliance()` |
-| `src/core/floorplan/` | **Primary** rule-driven architectural generator (non-Vastu). `geometry` (Rect + predicates), `room_program` (BHK→RoomSpecs), `subdivision` (squarify), `circulation` (connectivity doors), `openings` (windows), `generator` (orchestrator). Engine tag `ARCH-v1`. See `docs/superpowers/specs/2026-06-14-architectural-floorplan-generator-design.md` |
+| `src/core/floorplan/` | **Primary** rule-driven architectural generator (non-Vastu). `geometry` (Rect + predicates), `room_program` (BHK→RoomSpecs), `footprint` (Full/L/U/T building shapes + gardens), `subdivision` (squarify), `circulation` (connectivity doors), `openings` (windows), `generator` (orchestrator). Engine tag `ARCH-v1`; result carries `shape` + `gardens`. See `docs/superpowers/specs/2026-06-14-architectural-floorplan-generator-design.md` |
 | `src/core/layout_engine.py` | Fallback template engine: picks a hardcoded template by plot aspect-ratio similarity, round-robins among the closest matches for variety, then scales rooms to fit the plot. Engine tag `SCALED-TEMPLATE` |
 | `src/core/bsp_engine.py` | Retired procedural archetype engine (no longer wired into `/generate-plan`; kept for reference) |
 | `src/data/templates.py` | Hardcoded room coordinate templates (PLANS dict: 2BHK_v1-5, 3BHK_v1-3, etc.) — used only by the fallback engine |

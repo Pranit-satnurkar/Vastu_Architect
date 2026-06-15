@@ -20,6 +20,7 @@ from .room_program import (
 from .subdivision import fill_region, partition_by_area
 from .circulation import place_doors, choose_strategy
 from .openings import place_windows
+from .footprint import choose_footprint
 
 FT = 0.3048
 WALL = 0.23
@@ -69,6 +70,48 @@ def _group_regions(interior: Rect, groups: List[List[str]],
     weighted = [(tuple(g), sum(zone_weight(specs, z) for z in g)) for g in groups]
     regions = partition_by_area(interior, weighted, rng)
     return [(list(g), regions[g]) for g, _ in weighted]
+
+
+def _grouping_for_n(specs: List[RoomSpec], n: int) -> Optional[List[List[str]]]:
+    """Group zones into exactly `n` buckets to map onto `n` footprint cells."""
+    zones = zones_present(specs)  # program order: public, service, private
+    if n == 2 and PRIVATE in zones:
+        social = [z for z in zones if z != PRIVATE]
+        return [social, [PRIVATE]] if social else None
+    if n == 3 and len(zones) >= 3:
+        return [[z] for z in zones[:3]]
+    return None
+
+
+def _fill_cells(cells: List[Rect], specs: List[RoomSpec], strategy: str,
+                rng: random.Random) -> Optional[List[Rect]]:
+    """Tile the building cells with rooms. A single cell reuses the zone-group
+    sub-partition; multiple cells map one zone-group per cell (by area)."""
+    if len(cells) == 1:
+        groups = _zone_groups(specs, strategy, rng)
+        rooms: List[Rect] = []
+        for zones, region in _group_regions(cells[0], groups, specs, rng):
+            group_specs = [s for s in specs if s.zone in zones]
+            rng.shuffle(group_specs)
+            group_specs.sort(key=lambda s: -s.weight)
+            rooms += fill_region(region, group_specs, rng)
+        return rooms
+
+    groups = _grouping_for_n(specs, len(cells))
+    if groups is None:
+        return None
+    cells_sorted = sorted(cells, key=lambda c: -c.area)
+    groups_sorted = sorted(
+        groups, key=lambda g: -sum(zone_weight(specs, z) for z in g))
+    rooms = []
+    for cell, group in zip(cells_sorted, groups_sorted):
+        group_specs = [s for s in specs if s.zone in group]
+        if not group_specs:
+            return None
+        rng.shuffle(group_specs)
+        group_specs.sort(key=lambda s: -s.weight)
+        rooms += fill_region(cell, group_specs, rng)
+    return rooms
 
 
 def _assign_common_baths(rooms: List[Rect], bhk: str) -> None:
@@ -189,17 +232,18 @@ def _kitchen_dining_adjacent(rooms: List[Rect]) -> bool:
 # ---------------------------------------------------------------------------
 
 def _attempt(bhk: str, interior: Rect, plot: Rect, strategy: str,
-             rng: random.Random) -> Optional[List[Rect]]:
+             rng: random.Random):
+    """
+    Build one candidate plan on a chosen footprint. Returns
+    (rooms, kitchen_dining_adjacent, gardens, shape) for a hard-valid plan,
+    or None on any hard-constraint violation.
+    """
     specs = build_program(bhk)
-    groups = _zone_groups(specs, strategy, rng)
-    regions = _group_regions(interior, groups, specs, rng)
+    cells, gardens, shape = choose_footprint(interior, rng)
 
-    rooms: List[Rect] = []
-    for zones, region in regions:
-        group_specs = [s for s in specs if s.zone in zones]
-        rng.shuffle(group_specs)                    # jitter for variety
-        group_specs.sort(key=lambda s: -s.weight)   # heaviest first (stable)
-        rooms += fill_region(region, group_specs, rng)
+    rooms = _fill_cells(cells, specs, strategy, rng)
+    if rooms is None:
+        return None
 
     # Open dining carved from the living room (living-dining).
     from .room_program import has_dining
@@ -232,14 +276,13 @@ def _attempt(bhk: str, interior: Rect, plot: Rect, strategy: str,
     if not _valid(rooms, plot):
         return None
 
-    # Exterior detection must use the interior boundary the rooms are flush with
-    # (rooms sit inside the wall offset, not against the raw plot edge).
+    # Entrance faces the plot edge; pass the interior boundary for that test.
     entrance = place_doors(rooms, interior, rng)
     if entrance is None:
         return None
-    place_windows(rooms, interior, rng)
+    place_windows(rooms, rng)   # windows on any exterior wall (incl. garden side)
     # kitchen-dining adjacency is a soft quality signal, not a hard gate.
-    return rooms, _kitchen_dining_adjacent(rooms)
+    return rooms, _kitchen_dining_adjacent(rooms), gardens, shape
 
 
 # ---------------------------------------------------------------------------
@@ -263,17 +306,17 @@ def generate(bhk_type: str, plot_w_ft: float, plot_d_ft: float,
         cand = _attempt(bhk_type, interior, plot, strategy, rng)
         if cand is None:
             continue
-        rooms, kd_adjacent = cand
+        rooms, kd_adjacent, gardens, shape = cand
         if kd_adjacent:
             return _to_result(rooms, bhk_type, style, plot_w, plot_d,
-                              plot_w_ft, plot_d_ft, strategy, seed)
+                              plot_w_ft, plot_d_ft, shape, seed, gardens)
         if fallback_valid is None:
-            fallback_valid = (rooms, strategy)
+            fallback_valid = (rooms, shape, gardens)
 
     if fallback_valid is not None:
-        rooms, strategy = fallback_valid
+        rooms, shape, gardens = fallback_valid
         return _to_result(rooms, bhk_type, style, plot_w, plot_d,
-                          plot_w_ft, plot_d_ft, strategy, seed)
+                          plot_w_ft, plot_d_ft, shape, seed, gardens)
 
     # Fallback: scaled professional templates.
     from src.core.layout_engine import generate_layout
@@ -288,7 +331,8 @@ def generate(bhk_type: str, plot_w_ft: float, plot_d_ft: float,
 
 
 def _to_result(rooms: List[Rect], bhk, style, plot_w, plot_d,
-               plot_w_ft, plot_d_ft, strategy, seed) -> Dict[str, Any]:
+               plot_w_ft, plot_d_ft, shape, seed,
+               gardens: Optional[List[Rect]] = None) -> Dict[str, Any]:
     out_rooms = []
     for r in rooms:
         out_rooms.append({
@@ -298,12 +342,19 @@ def _to_result(rooms: List[Rect], bhk, style, plot_w, plot_d,
             "x_px": round(r.x * PPM), "y_px": round(r.y * PPM),
             "w_px": round(r.w * PPM), "h_px": round(r.h * PPM),
         })
+    out_gardens = [{
+        "x": g.x, "y": g.y, "w": g.w, "h": g.h,
+        "x_px": round(g.x * PPM), "y_px": round(g.y * PPM),
+        "w_px": round(g.w * PPM), "h_px": round(g.h * PPM),
+    } for g in (gardens or [])]
     return {
         "plot_w_m": plot_w, "plot_d_m": plot_d,
         "plot_w_ft": round(plot_w_ft, 1), "plot_d_ft": round(plot_d_ft, 1),
         "bhk_type": bhk, "style": style,
         "engine": "ARCH-v1",
-        "template_used": strategy,
+        "template_used": shape,
+        "shape": shape,
+        "gardens": out_gardens,
         "room_count": len(out_rooms),
         "rooms": out_rooms,
         "seed": seed,

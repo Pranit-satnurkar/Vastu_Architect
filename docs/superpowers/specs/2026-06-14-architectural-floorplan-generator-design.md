@@ -165,3 +165,32 @@ Python unit tests under `backend/tests/` (pytest), run with
 
 `spatial_optimizer` keeps a one-line switch between the new generator and the
 template engine; reverting the route restores prior behavior.
+
+---
+
+## Addendum (2026-06-15): Footprint shapes + accurate openings
+
+Follow-up to user feedback ("plans are always rectangular; doors/windows not accurate").
+
+**Footprint shapes (`floorplan/footprint.py`):** the plot stays the rectangle
+the user enters; the *building* takes an orthogonal footprint — **Full / L / U /
+T** (mirrored/transposed for orientation variety) — and the leftover corner or
+notch becomes a **garden** (open space). A footprint is a small set of
+rectangular **cells** (1–3) that tile the building plus garden rectangles. The
+generator tiles rooms into the cells: one cell reuses the zone-group
+sub-partition; multiple cells map one zone-group per cell by area
+(`_grouping_for_n`, `_fill_cells`). If a shape can't fit all rooms it retries a
+different footprint (often Full); tight plots stay Full. Result carries `shape`
+and `gardens`. Garden-facing walls now count as exterior for windows
+(`geometry.exterior_walls` — "wall not backed by another room").
+
+**Renderer:** plot boundary drawn as a thin dashed lot line (building outline
+comes from room walls, so non-rectangular footprints read correctly); gardens
+drawn as dashed green open space; **doors** cut a real gap in the wall with a
+swing leaf + arc into the room; **windows** cut a gap with a double glazing
+line. Openings render in a top layer so a neighbour's wall can't cover them.
+
+**Results:** all reasonable plot sizes use `ARCH-v1` with full shape variety
+(L/T/U on roomy plots, Full on tighter ones), 12/12 distinct layouts, zero
+room/garden overlaps. Tests: `test_footprint.py` (tiling/area conservation) +
+extended `test_generator.py` (garden non-overlap, shape field).
