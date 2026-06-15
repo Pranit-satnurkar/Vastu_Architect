@@ -232,14 +232,14 @@ def _kitchen_dining_adjacent(rooms: List[Rect]) -> bool:
 # ---------------------------------------------------------------------------
 
 def _attempt(bhk: str, interior: Rect, plot: Rect, strategy: str,
-             rng: random.Random):
+             rng: random.Random, force_full: bool = False):
     """
     Build one candidate plan on a chosen footprint. Returns
     (rooms, kitchen_dining_adjacent, gardens, shape) for a hard-valid plan,
     or None on any hard-constraint violation.
     """
     specs = build_program(bhk)
-    cells, gardens, shape = choose_footprint(interior, rng)
+    cells, gardens, shape = choose_footprint(interior, rng, force_full=force_full)
 
     rooms = _fill_cells(cells, specs, strategy, rng)
     if rooms is None:
@@ -303,7 +303,10 @@ def generate(bhk_type: str, plot_w_ft: float, plot_d_ft: float,
     for attempt in range(MAX_ATTEMPTS):
         rng = random.Random(seed + attempt * 7919)
         strategy = choose_strategy(rng)
-        cand = _attempt(bhk_type, interior, plot, strategy, rng)
+        # Late retries pin to the plain rectangle so a plot that can't host a
+        # shape still yields an ARCH plan rather than falling back to templates.
+        force_full = attempt >= MAX_ATTEMPTS - 6
+        cand = _attempt(bhk_type, interior, plot, strategy, rng, force_full)
         if cand is None:
             continue
         rooms, kd_adjacent, gardens, shape = cand

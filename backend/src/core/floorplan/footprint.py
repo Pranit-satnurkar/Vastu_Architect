@@ -28,8 +28,8 @@ def _full(rng) -> Tuple[List[FRect], List[FRect], str]:
 
 
 def _l(rng) -> Tuple[List[FRect], List[FRect], str]:
-    cx = rng.uniform(0.40, 0.55)   # garden width fraction
-    cy = rng.uniform(0.40, 0.55)   # garden depth fraction
+    cx = rng.uniform(0.30, 0.44)   # garden width fraction
+    cy = rng.uniform(0.28, 0.42)   # garden depth fraction
     cells = [(0.0, 0.0, 1.0, 1.0 - cy),          # full-width band
              (0.0, 1.0 - cy, 1.0 - cx, cy)]       # remaining leg
     gardens = [(1.0 - cx, 1.0 - cy, cx, cy)]       # cut corner
@@ -37,8 +37,8 @@ def _l(rng) -> Tuple[List[FRect], List[FRect], str]:
 
 
 def _t(rng) -> Tuple[List[FRect], List[FRect], str]:
-    cx = rng.uniform(0.22, 0.32)   # each cut corner width
-    cy = rng.uniform(0.38, 0.50)   # cut depth
+    cx = rng.uniform(0.17, 0.26)   # each cut corner width
+    cy = rng.uniform(0.28, 0.40)   # cut depth
     cells = [(0.0, 0.0, 1.0, 1.0 - cy),               # bar
              (cx, 1.0 - cy, 1.0 - 2 * cx, cy)]         # stem
     gardens = [(0.0, 1.0 - cy, cx, cy),
@@ -47,10 +47,10 @@ def _t(rng) -> Tuple[List[FRect], List[FRect], str]:
 
 
 def _u(rng) -> Tuple[List[FRect], List[FRect], str]:
-    cy = rng.uniform(0.36, 0.50)   # notch depth
-    nw = rng.uniform(0.30, 0.44)   # notch width
+    cy = rng.uniform(0.28, 0.40)   # notch depth
+    nw = rng.uniform(0.24, 0.36)   # notch width
     nx = (1.0 - nw) / 2 + rng.uniform(-0.08, 0.08)
-    nx = max(0.22, min(1.0 - nw - 0.22, nx))
+    nx = max(0.24, min(1.0 - nw - 0.24, nx))
     cells = [(0.0, 0.0, 1.0, 1.0 - cy),                       # top band
              (0.0, 1.0 - cy, nx, cy),                          # left leg
              (nx + nw, 1.0 - cy, 1.0 - nx - nw, cy)]           # right leg
@@ -58,7 +58,9 @@ def _u(rng) -> Tuple[List[FRect], List[FRect], str]:
     return cells, gardens, "U"
 
 
-_SHAPES = [(_full, 35), (_l, 25), (_t, 20), (_u, 20)]
+# Favour shapes over plain rectangles so the variety is obvious; Full is the
+# fallback the generator lands on anyway when a shape can't fit a tight plot.
+_SHAPES = [(_full, 12), (_l, 34), (_t, 28), (_u, 26)]
 
 
 def _mirror_x(r: FRect) -> FRect:
@@ -76,13 +78,16 @@ def _transpose(r: FRect) -> FRect:
     return (fy, fx, fh, fw)
 
 
-def choose_footprint(interior: Rect, rng: random.Random
+def choose_footprint(interior: Rect, rng: random.Random,
+                     force_full: bool = False
                      ) -> Tuple[List[Rect], List[Rect], str]:
     """
     Pick a building footprint for `interior`. Returns (cells, gardens, name)
     as absolute Rects. `cells` tile the building; `gardens` are open blocks.
+    `force_full` pins it to the plain rectangle (used on late retries so a plot
+    that can't host a shape still produces an ARCH plan instead of falling back).
     """
-    fn, _ = _weighted_choice(_SHAPES, rng)
+    fn = _full if force_full else _weighted_choice(_SHAPES, rng)[0]
     cells_f, gardens_f, name = fn(rng)
 
     # Random orientation: mirror in x / y and optionally transpose.

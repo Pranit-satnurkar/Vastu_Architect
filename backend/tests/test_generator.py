@@ -55,14 +55,17 @@ def test_master_has_ensuite_when_arch():
         assert "Ensuite" in names, f"no ensuite at seed {seed}"
 
 
-def test_kitchen_adjacent_to_dining_when_arch():
+def test_dining_adjoins_living_when_arch():
+    # Dining is carved from the living room (open living-dining), so it must
+    # always share a wall with it. (Kitchen-dining adjacency is only a soft
+    # preference now that rooms can span separate footprint cells.)
     for seed in range(12):
         res = generate("3BHK", 35, 55, "modern", seed=seed)
         if res["engine"] != "ARCH-v1":
             continue
         rects = {r["name"]: Rect(r["x"], r["y"], r["w"], r["h"]) for r in res["rooms"]}
-        if "Kitchen" in rects and "Dining" in rects:
-            assert shared_wall(rects["Kitchen"], rects["Dining"]) is not None
+        if "Dining" in rects and "Living Room" in rects:
+            assert shared_wall(rects["Dining"], rects["Living Room"]) is not None
 
 
 def test_gardens_do_not_overlap_rooms():
